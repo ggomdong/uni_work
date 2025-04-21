@@ -23,39 +23,25 @@ class FormButton extends ConsumerWidget {
       child: FractionallySizedBox(
         widthFactor: 1,
         child: AnimatedContainer(
-          padding: EdgeInsets.symmetric(vertical: Sizes.size8),
+          padding: EdgeInsets.symmetric(vertical: Sizes.size16),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(5),
             color:
                 disabled
                     ? isDark
                         ? Colors.grey.shade800
                         : Colors.grey.shade600
                     : Theme.of(context).primaryColor,
-            border: Border.all(width: 2, color: Colors.black),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black,
-                spreadRadius: 1, // 그림자 확산 정도
-                blurRadius: 1, // 그림자 흐림 정도
-                offset: Offset(2, 2), // X, Y 방향의 그림자 위치 조정
-              ),
-            ],
           ),
           duration: const Duration(milliseconds: 500),
-          child: Text(
-            text,
-            textAlign: TextAlign.center,
+          child: AnimatedDefaultTextStyle(
+            duration: Duration(microseconds: 500),
             style: TextStyle(
-              fontSize: Sizes.size18,
+              color: disabled ? Colors.grey.shade400 : Colors.white,
               fontWeight: FontWeight.w600,
-              color:
-                  disabled
-                      ? isDark
-                          ? Colors.grey.shade600
-                          : Colors.grey.shade400
-                      : Colors.black,
+              fontSize: Sizes.size16,
             ),
+            child: Text(text, textAlign: TextAlign.center),
           ),
         ),
       ),

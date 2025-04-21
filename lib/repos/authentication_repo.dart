@@ -136,39 +136,6 @@ class AuthenticationRepository {
       return false;
     }
   }
-
-  // Future<bool> validateAutoLogIn() async {
-  //   // isLoggedIn 체크
-  //   if (!await isLoggedIn()) return false;
-
-  //   // Token 유효성 체크
-  //   final accessToken = await _secureStorage.read(key: _accessTokenKey);
-  //   final refreshToken = await _secureStorage.read(key: _refreshTokenKey);
-
-  //   if (accessToken == null || refreshToken == null) {
-  //     _logger.w("토큰이 없습니다.");
-  //     return false;
-  //   }
-
-  //   try {
-  //     // refreshToken의 유효성 확인 => 유효하면 accessToken 재발급 가능
-  //     // 따라서, accessToken의 유효성 확인은 불필요함
-  //     // header 추가는 불필요하고, 다른 logic을 방지하기 위해, authService를 이용하지 않음
-  //     final response = await _dio.post(
-  //       '${baseUrl}api/token/verify/',
-  //       data: {'token': refreshToken},
-  //       // options: Options(
-  //       //   extra: {'interceptor': false}, // interceptor 무시 설정
-  //       // ),
-  //     );
-  //     _logger.i("Refresh token is valid.");
-  //     return response.statusCode == 200; // Token 모두 유효
-  //   } catch (e) {
-  //     _logger.w("Token is invalid or expired. Log out...");
-  //     logout();
-  //     return false;
-  //   }
-  // }
 }
 
 final authRepo = Provider((ref) {
