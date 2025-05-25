@@ -42,7 +42,8 @@ dependencies:
   shared_preferences: ^2.5.3
   flutter_secure_storage: ^9.2.4
   table_calendar: ^3.2.0
-  flutter_beacon: ^0.5.1
+  flutter_beacon:
+    path: local_packages/flutter_beacon
   logger: ^2.5.0
 
 dev_dependencies:

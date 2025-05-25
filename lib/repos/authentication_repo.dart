@@ -82,14 +82,6 @@ class AuthenticationRepository {
 
   bool get isLoggedIn => _prefs.getBool(_isLoggedInKey) ?? false;
 
-  Stream<bool> authStateChanges() async* {
-    yield isLoggedIn;
-    await for (final _
-        in _secureStorage.read(key: _accessTokenKey).asStream()) {
-      yield isLoggedIn;
-    }
-  }
-
   Future<void> login(String username, String password) async {
     final response = await _dio.post(
       'api/token/',
@@ -142,11 +134,6 @@ final authRepo = Provider((ref) {
   final prefs = ref.read(sharedPreferencesProvider);
   final storage = const FlutterSecureStorage();
   return AuthenticationRepository(storage, prefs);
-});
-
-final authStateProvider = StreamProvider<bool>((ref) {
-  final repo = ref.watch(authRepo);
-  return repo.authStateChanges();
 });
 
 final sharedPreferencesProvider = Provider<SharedPreferences>(

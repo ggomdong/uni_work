@@ -11,8 +11,6 @@ import '../views/widgets/form_button.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
-  static const routeUrl = "/";
-  static const routeName = "login";
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -72,12 +70,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   keyboardType: TextInputType.number,
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(11),
+                    LengthLimitingTextInputFormatter(8),
                     PhoneInputFormatter(),
                   ],
                   decoration: InputDecoration(
                     border: const OutlineInputBorder(),
                     labelText: 'ID (휴대폰 번호)',
+                    prefixText: '010-',
+                    prefixStyle: TextStyle(
+                      color: Colors.black,
+                      fontSize: Sizes.size16,
+                    ),
                     focusedBorder: OutlineInputBorder(
                       borderSide: BorderSide(
                         color: Theme.of(context).primaryColor,
@@ -88,14 +91,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   validator: (value) {
                     if (value == null ||
                         value.trim().isEmpty ||
-                        value.trim().length != 13) {
+                        value.trim().length != 9) {
                       return 'ID를 정확히 입력해주세요.';
                     }
                     return null;
                   },
                   onSaved: (value) {
                     if (value != null) {
-                      formData['username'] = value.replaceAll('-', '');
+                      // '010' 추가 및 하이픈 제거
+                      formData['username'] = '010${value.replaceAll('-', '')}';
                     }
                   },
                 ),

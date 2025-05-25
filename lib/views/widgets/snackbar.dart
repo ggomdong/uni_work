@@ -7,7 +7,7 @@ void showSnackBar(BuildContext context, String message, Color color) {
     SnackBar(
       content: Text(message, textAlign: TextAlign.center),
       backgroundColor: color,
-      duration: const Duration(seconds: 3),
+      behavior: SnackBarBehavior.floating,
     ),
   );
 }

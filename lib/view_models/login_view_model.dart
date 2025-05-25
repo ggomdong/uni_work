@@ -7,11 +7,11 @@ import '../views/widgets/snackbar.dart';
 import '../repos/authentication_repo.dart';
 
 class LoginViewModel extends AsyncNotifier<void> {
-  late final AuthenticationRepository _repository = ref.read(authRepo);
+  late final AuthenticationRepository _repository;
 
   @override
   FutureOr<void> build() {
-    // _repository = ref.read(authRepo);
+    _repository = ref.read(authRepo);
   }
 
   Future<void> login(
@@ -24,7 +24,7 @@ class LoginViewModel extends AsyncNotifier<void> {
       () async => await _repository.login(username, password),
     );
     if (state.hasError) {
-      showSnackBar(context, state.error.toString(), Colors.red);
+      showSnackBar(context, '아이디 또는 비밀번호가 일치하지 않습니다.', Colors.red);
     } else {
       context.go("/home");
     }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:uni_work/utils.dart';
 import '../../constants/sizes.dart';
 
 class NavTab extends ConsumerWidget {
@@ -21,11 +22,12 @@ class NavTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = isDarkMode(ref);
     return Expanded(
       child: GestureDetector(
         onTap: () => onTap(),
         child: Container(
-          color: Colors.white,
+          color: isDark ? Colors.black : Colors.white,
           child: AnimatedOpacity(
             duration: const Duration(milliseconds: 300),
             opacity: isSelected ? 1 : 0.6,
@@ -34,7 +36,7 @@ class NavTab extends ConsumerWidget {
               children: [
                 FaIcon(
                   isSelected ? selectedIcon : icon,
-                  color: Colors.black,
+                  color: isDark ? Colors.white : Colors.black,
                   size: Sizes.size28,
                 ),
               ],

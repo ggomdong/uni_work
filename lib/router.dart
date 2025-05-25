@@ -1,27 +1,38 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../views/splash_screen.dart';
 import '../views/main_navigation_screen.dart';
-import '../repos/authentication_repo.dart';
 import '../views/login_screen.dart';
+
+class RouteURL {
+  static const splash = "/splash";
+  static const login = "/login";
+  static const home = "/home";
+  static const tab = "/:tab(home|calendar|profile)";
+}
+
+class RouteName {
+  static const splash = "splash";
+  static const login = "login";
+  static const home = "home";
+}
 
 final routerProvider = Provider((ref) {
   return GoRouter(
-    initialLocation: "/home",
-    redirect: (context, state) {
-      final isLoggedIn = ref.read(authRepo).isLoggedIn;
-      if (!isLoggedIn && state.matchedLocation != LoginScreen.routeUrl) {
-        return LoginScreen.routeUrl;
-      }
-      return null;
-    },
+    initialLocation: RouteURL.splash,
     routes: [
       GoRoute(
-        name: LoginScreen.routeName,
-        path: LoginScreen.routeUrl,
+        name: RouteName.splash,
+        path: RouteURL.splash,
+        builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        name: RouteName.login,
+        path: RouteURL.login,
         builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
-        path: "/:tab(home|calendar|profile)",
+        path: RouteURL.tab,
         builder: (context, state) {
           final tab = state.pathParameters["tab"] ?? "";
           return MainNavigationScreen(tab: tab);

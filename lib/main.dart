@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uni_work/repos/authentication_repo.dart';
+import '../repos/authentication_repo.dart';
 import '../constants/sizes.dart';
 import '../repos/settings_repo.dart';
 import '../router.dart';
