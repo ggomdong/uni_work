@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
-import 'package:uni_work/utils.dart';
+import '../utils.dart';
 import '../views/profile_screen.dart';
 import '../views/calendar_screen.dart';
 import '../views/widgets/nav_tab.dart';

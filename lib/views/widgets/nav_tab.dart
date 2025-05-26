@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:uni_work/utils.dart';
+import '../../utils.dart';
 import '../../constants/sizes.dart';
 
 class NavTab extends ConsumerWidget {

@@ -14,10 +14,10 @@ class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  ProfileScreenState createState() => ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class ProfileScreenState extends ConsumerState<ProfileScreen> {
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _onShowModal(BuildContext context, WidgetRef ref) {
     showCupertinoDialog(
       context: context,
@@ -26,7 +26,7 @@ class ProfileScreenState extends ConsumerState<ProfileScreen> {
             title: const Text("정말 로그아웃하시겠어요?"),
             actions: [
               CupertinoDialogAction(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => context.pop(),
                 child: const Text("아니오"),
               ),
               CupertinoDialogAction(

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:go_router/go_router.dart';
+import '../views/widgets/snackbar.dart';
+import '../router.dart';
 import '../view_models/login_view_model.dart';
 import '../constants/constants.dart';
 import '../constants/gaps.dart';
@@ -32,13 +35,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() {});
   }
 
-  void _onSubmitForm() {
-    if (_formKey.currentState != null) {
-      if (_formKey.currentState!.validate()) {
-        _formKey.currentState!.save();
-        ref
-            .read(loginProvider.notifier)
-            .login(formData['username']!, formData['password']!, context);
+  void _onSubmitForm() async {
+    if (_formKey.currentState != null && _formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
+
+      final success = await ref
+          .read(loginProvider.notifier)
+          .login(formData['username']!, formData['password']!);
+
+      if (mounted) {
+        if (success) {
+          context.go(RouteURL.home);
+        } else {
+          showSnackBar(context, '아이디 또는 비밀번호가 일치하지 않습니다.', Colors.red);
+        }
       }
     }
   }
