@@ -1,33 +1,22 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../views/widgets/snackbar.dart';
 import '../repos/authentication_repo.dart';
 
 class LoginViewModel extends AsyncNotifier<void> {
-  late final AuthenticationRepository _repository = ref.read(authRepo);
+  late final AuthenticationRepository _repository;
 
   @override
   FutureOr<void> build() {
-    // _repository = ref.read(authRepo);
+    _repository = ref.read(authRepo);
   }
 
-  Future<void> login(
-    String username,
-    String password,
-    BuildContext context,
-  ) async {
+  Future<bool> login(String username, String password) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
       () async => await _repository.login(username, password),
     );
-    if (state.hasError) {
-      showSnackBar(context, state.error.toString(), Colors.red);
-    } else {
-      context.go("/home");
-    }
+    return !state.hasError;
   }
 
   Future<void> logout() async {

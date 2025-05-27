@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:go_router/go_router.dart';
+import '../views/widgets/snackbar.dart';
+import '../router.dart';
 import '../view_models/login_view_model.dart';
 import '../constants/constants.dart';
 import '../constants/gaps.dart';
@@ -11,8 +14,6 @@ import '../views/widgets/form_button.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
-  static const routeUrl = "/";
-  static const routeName = "login";
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -34,13 +35,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() {});
   }
 
-  void _onSubmitForm() {
-    if (_formKey.currentState != null) {
-      if (_formKey.currentState!.validate()) {
-        _formKey.currentState!.save();
-        ref
-            .read(loginProvider.notifier)
-            .login(formData['username']!, formData['password']!, context);
+  void _onSubmitForm() async {
+    if (_formKey.currentState != null && _formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
+
+      final success = await ref
+          .read(loginProvider.notifier)
+          .login(formData['username']!, formData['password']!);
+
+      if (mounted) {
+        if (success) {
+          context.go(RouteURL.home);
+        } else {
+          showSnackBar(context, '아이디 또는 비밀번호가 일치하지 않습니다.', Colors.red);
+        }
       }
     }
   }
@@ -72,12 +80,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   keyboardType: TextInputType.number,
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(11),
+                    LengthLimitingTextInputFormatter(8),
                     PhoneInputFormatter(),
                   ],
                   decoration: InputDecoration(
                     border: const OutlineInputBorder(),
                     labelText: 'ID (휴대폰 번호)',
+                    prefixText: '010-',
+                    prefixStyle: TextStyle(
+                      color: Colors.black,
+                      fontSize: Sizes.size16,
+                    ),
                     focusedBorder: OutlineInputBorder(
                       borderSide: BorderSide(
                         color: Theme.of(context).primaryColor,
@@ -88,14 +101,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   validator: (value) {
                     if (value == null ||
                         value.trim().isEmpty ||
-                        value.trim().length != 13) {
+                        value.trim().length != 9) {
                       return 'ID를 정확히 입력해주세요.';
                     }
                     return null;
                   },
                   onSaved: (value) {
                     if (value != null) {
-                      formData['username'] = value.replaceAll('-', '');
+                      // '010' 추가 및 하이픈 제거
+                      formData['username'] = '010${value.replaceAll('-', '')}';
                     }
                   },
                 ),

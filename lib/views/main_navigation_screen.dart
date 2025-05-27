@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
+import '../utils.dart';
 import '../views/profile_screen.dart';
 import '../views/calendar_screen.dart';
 import '../views/widgets/nav_tab.dart';
@@ -46,9 +47,10 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = isDarkMode(ref);
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? Colors.black : Colors.white,
       body: Stack(
         children: [
           Offstage(offstage: _selectedIndex != 0, child: const HomeScreen()),
@@ -58,9 +60,12 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? Colors.black : Colors.white,
           border: Border(
-            top: BorderSide(color: Colors.black, width: Sizes.size2),
+            top: BorderSide(
+              color: isDark ? Colors.white : Colors.black,
+              width: Sizes.size2,
+            ),
           ),
         ),
         child: Padding(

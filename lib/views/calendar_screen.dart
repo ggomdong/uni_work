@@ -4,8 +4,6 @@ import '../views/widgets/common_app_bar.dart';
 
 class CalendarScreen extends ConsumerStatefulWidget {
   const CalendarScreen({super.key});
-  static const routeUrl = "/calendar";
-  static const routeName = "calendar";
 
   @override
   ConsumerState<CalendarScreen> createState() => _CalendarScreenState();

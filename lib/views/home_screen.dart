@@ -4,8 +4,6 @@ import '../views/widgets/common_app_bar.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
-  static const routeUrl = "/home";
-  static const routeName = "home";
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
