@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,10 +18,7 @@ class AuthenticationRepository {
   static const _isLoggedInKey = 'isLoggedIn';
 
   AuthenticationRepository(this._secureStorage, this._prefs) {
-    _dio.options.baseUrl = const String.fromEnvironment(
-      'BASE_URL',
-      defaultValue: 'http://localhost:8000/',
-    );
+    _dio.options.baseUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000/';
 
     _dio.interceptors.add(
       InterceptorsWrapper(
@@ -82,21 +83,47 @@ class AuthenticationRepository {
 
   bool get isLoggedIn => _prefs.getBool(_isLoggedInKey) ?? false;
 
-  Future<void> login(String username, String password) async {
-    final response = await _dio.post(
-      'api/token/',
-      data: {'username': username, 'password': password},
-    );
+  Future<String> getDeviceId() async {
+    final deviceInfo = DeviceInfoPlugin();
 
-    await _secureStorage.write(
-      key: _accessTokenKey,
-      value: response.data['access'],
-    );
-    await _secureStorage.write(
-      key: _refreshTokenKey,
-      value: response.data['refresh'],
-    );
-    await _prefs.setBool(_isLoggedInKey, true);
+    if (Platform.isAndroid) {
+      final androidInfo = await deviceInfo.androidInfo;
+      return androidInfo.id;
+    } else if (Platform.isIOS) {
+      final iosInfo = await deviceInfo.iosInfo;
+      return iosInfo.identifierForVendor ?? 'unknown';
+    } else {
+      return 'unsupported';
+    }
+  }
+
+  Future<bool> login(String username, String password) async {
+    try {
+      final deviceId = await getDeviceId();
+      final response = await _dio.post(
+        'api/token/',
+        data: {
+          'username': username,
+          'password': password,
+          'device_id': deviceId,
+        },
+      );
+
+      await _secureStorage.write(
+        key: _accessTokenKey,
+        value: response.data['access'],
+      );
+      await _secureStorage.write(
+        key: _refreshTokenKey,
+        value: response.data['refresh'],
+      );
+      await _prefs.setBool(_isLoggedInKey, true);
+
+      return true;
+    } on DioException catch (e) {
+      final String message = e.response?.data['message'] ?? '로그인 실패';
+      throw message;
+    }
   }
 
   Future<void> logout() async {
