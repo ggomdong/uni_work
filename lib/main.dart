@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import '../repos/authentication_repo.dart';
 import '../constants/sizes.dart';
 import '../repos/settings_repo.dart';
@@ -11,6 +12,8 @@ import '../view_models/settings_view_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await initializeDateFormatting('ko_KR', null);
 
   await dotenv.load();
 

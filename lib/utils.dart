@@ -1,5 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vibration/vibration.dart';
+import 'package:intl/intl.dart';
 import '../view_models/settings_view_model.dart';
 
 bool isDarkMode(WidgetRef ref) => ref.watch(settingsProvider).darkMode;
@@ -40,4 +43,28 @@ String? formatInitialPhone(String? fullPhone) {
         .text;
   }
   return null;
+}
+
+void triggerHaptic(BuildContext context) async {
+  try {
+    if (Theme.of(context).platform == TargetPlatform.iOS) {
+      HapticFeedback.heavyImpact();
+    } else {
+      if (await Vibration.hasVibrator()) {
+        Vibration.vibrate(duration: 40);
+      }
+    }
+  } catch (_) {
+    // 플랫폼 예외 무시
+  }
+}
+
+String formatTime(DateTime? time) {
+  if (time == null) return "-";
+  return DateFormat('HH:mm:ss').format(time);
+}
+
+TimeOfDay parseTimeOfDay(String timeStr) {
+  final parts = timeStr.split(":");
+  return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
 }

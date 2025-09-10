@@ -7,14 +7,14 @@ import '../utils.dart';
 import '../constants/gaps.dart';
 import '../views/widgets/common_app_bar.dart';
 
-class CalendarScreen extends StatefulWidget {
-  const CalendarScreen({super.key});
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
 
   @override
-  State<CalendarScreen> createState() => _CalendarScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _CalendarScreenState extends State<CalendarScreen>
+class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   bool beaconDetected = true; // 비콘 인식 여부
