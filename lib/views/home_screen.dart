@@ -249,6 +249,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         //   _startCheckoutStatusChecker();
         // }
 
+        final content = contentBody(
+          primaryColor,
+          today,
+          schedule,
+          empName,
+          progress,
+          notice,
+          isEarlyCheckout,
+          checkinTime,
+          checkoutTime,
+        );
+
         return Scaffold(
           appBar: CommonAppBar(),
           body:
@@ -263,29 +275,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         child: child,
                       );
                     },
-                    child: contentBody(
-                      primaryColor,
-                      today,
-                      schedule,
-                      empName,
-                      progress,
-                      notice,
-                      isEarlyCheckout,
-                      checkinTime,
-                      checkoutTime,
-                    ),
+                    child: content,
                   )
-                  : contentBody(
-                    primaryColor,
-                    today,
-                    schedule,
-                    empName,
-                    progress,
-                    notice,
-                    isEarlyCheckout,
-                    checkinTime,
-                    checkoutTime,
-                  ),
+                  : content,
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
