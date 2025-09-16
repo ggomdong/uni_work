@@ -82,6 +82,7 @@ class AuthenticationRepository {
   }
 
   bool get isLoggedIn => _prefs.getBool(_isLoggedInKey) ?? false;
+  Dio get dio => _dio;
 
   Future<String> getDeviceId() async {
     final deviceInfo = DeviceInfoPlugin();

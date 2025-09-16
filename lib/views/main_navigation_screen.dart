@@ -73,7 +73,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
             left: Sizes.size12,
             right: Sizes.size12,
             top: Sizes.size24,
-            bottom: Sizes.size20,
+            bottom: Sizes.size52,
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
