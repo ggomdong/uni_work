@@ -59,14 +59,18 @@ class AuthenticationRepository {
                   value: newRefreshToken,
                 );
 
-                final retryResponse = await _dio.request(
-                  error.requestOptions.path,
-                  options: Options(
-                    method: error.requestOptions.method,
-                    headers: {'Authorization': 'Bearer $newAccessToken'},
+                // 기존의 요청 복제 (쿼리, 데이터, 헤더 모두 유지)
+                final newOptions = error.requestOptions.copyWith(
+                  headers: {
+                    ...error.requestOptions.headers,
+                    'Authorization': 'Bearer $newAccessToken',
+                  },
+                  queryParameters: Map<String, dynamic>.from(
+                    error.requestOptions.queryParameters,
                   ),
-                  data: error.requestOptions.data,
                 );
+
+                final retryResponse = await _dio.fetch(newOptions);
 
                 return handler.resolve(retryResponse);
               } catch (_) {

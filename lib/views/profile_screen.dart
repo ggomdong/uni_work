@@ -75,7 +75,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     child: Column(
                       children: [
-                        Gaps.v10,
+                        Gaps.v48,
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -121,25 +121,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         Gaps.v6,
                         Divider(thickness: 0.5),
-                        SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: Sizes.size20,
-                          ),
-                          value: ref.watch(settingsProvider).darkMode,
-                          onChanged:
-                              (value) => ref
-                                  .read(settingsProvider.notifier)
-                                  .setDarkMode(value),
-                          title: const Text(
-                            "다크모드",
-                            style: TextStyle(fontSize: Sizes.size18),
-                          ),
-                          secondary: Icon(
-                            isDark
-                                ? Icons.dark_mode_outlined
-                                : Icons.light_mode_outlined,
-                          ),
-                        ),
+                        // SwitchListTile.adaptive(
+                        //   contentPadding: EdgeInsets.symmetric(
+                        //     horizontal: Sizes.size20,
+                        //   ),
+                        //   value: ref.watch(settingsProvider).darkMode,
+                        //   onChanged:
+                        //       (value) => ref
+                        //           .read(settingsProvider.notifier)
+                        //           .setDarkMode(value),
+                        //   title: const Text(
+                        //     "다크모드",
+                        //     style: TextStyle(fontSize: Sizes.size18),
+                        //   ),
+                        //   secondary: Icon(
+                        //     isDark
+                        //         ? Icons.dark_mode_outlined
+                        //         : Icons.light_mode_outlined,
+                        //   ),
+                        // ),
                         ListTile(
                           leading: Icon(Icons.logout),
                           title: const Text(
