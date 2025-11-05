@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../utils.dart';
 import '../views/profile_screen.dart';
 import '../views/calendar_screen.dart';
+import '../views/stat_screen.dart';
 import '../views/widgets/nav_tab.dart';
 import '../constants/sizes.dart';
 import '../views/home_screen.dart';
@@ -21,7 +22,7 @@ class MainNavigationScreen extends ConsumerStatefulWidget {
 }
 
 class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
-  final List<String> _tabs = ["home", "calendar", "profile"];
+  final List<String> _tabs = ["home", "calendar", "stat", "profile"];
 
   late int _selectedIndex =
       _tabs.contains(widget.tab) ? _tabs.indexOf(widget.tab) : 0;
@@ -55,7 +56,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         children: [
           Offstage(offstage: _selectedIndex != 0, child: const HomeScreen()),
           Offstage(offstage: _selectedIndex != 1, child: CalendarScreen()),
-          Offstage(offstage: _selectedIndex != 2, child: ProfileScreen()),
+          Offstage(offstage: _selectedIndex != 2, child: StatScreen()),
+          Offstage(offstage: _selectedIndex != 3, child: ProfileScreen()),
         ],
       ),
       bottomNavigationBar: Container(
@@ -85,18 +87,25 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                 onTap: () => _onTap(0),
                 selectedIndex: _selectedIndex,
               ),
+              // NavTab(
+              //   isSelected: _selectedIndex == 1,
+              //   icon: FontAwesomeIcons.solidClock,
+              //   selectedIcon: FontAwesomeIcons.solidClock,
+              //   onTap: () => _onTap(1),
+              //   selectedIndex: _selectedIndex,
+              // ),
               NavTab(
-                isSelected: _selectedIndex == 1,
-                icon: FontAwesomeIcons.solidClock,
-                selectedIcon: FontAwesomeIcons.solidClock,
-                onTap: () => _onTap(1),
+                isSelected: _selectedIndex == 2,
+                icon: FontAwesomeIcons.chartSimple,
+                selectedIcon: FontAwesomeIcons.chartSimple,
+                onTap: () => _onTap(2),
                 selectedIndex: _selectedIndex,
               ),
               NavTab(
-                isSelected: _selectedIndex == 2,
+                isSelected: _selectedIndex == 3,
                 icon: FontAwesomeIcons.solidUser,
                 selectedIcon: FontAwesomeIcons.solidUser,
-                onTap: () => _onTap(2),
+                onTap: () => _onTap(3),
                 selectedIndex: _selectedIndex,
               ),
             ],

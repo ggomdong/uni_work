@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../constants/gaps.dart';
 
 class WorkTimeCard extends StatelessWidget {
   final DateTime? checkinTime;
@@ -66,7 +67,7 @@ class WorkTimeCard extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 6),
+        Gaps.v6,
         Text(
           _formatTime(time),
           style: const TextStyle(

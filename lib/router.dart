@@ -8,7 +8,7 @@ class RouteURL {
   static const splash = "/splash";
   static const login = "/login";
   static const home = "/home";
-  static const tab = "/:tab(home|calendar|profile)";
+  static const tab = "/:tab(home|calendar|stat|profile)";
 }
 
 class RouteName {

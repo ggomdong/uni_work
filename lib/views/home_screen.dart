@@ -262,7 +262,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         );
 
         return Scaffold(
-          appBar: CommonAppBar(),
+          appBar: CommonAppBar(
+            actions: [
+              IconButton(
+                tooltip: "새로고침",
+                onPressed: _onRefreshTap,
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
+          ),
           body:
               beaconDetected
                   ? AnimatedBuilder(
@@ -323,24 +331,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                 ),
                 Gaps.h12,
-                GestureDetector(
-                  onTap: _canRefresh ? _onRefreshTap : null,
-                  child: Opacity(
-                    opacity: _canRefresh ? 1.0 : 0.4,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: primaryColor,
-                      ),
-                      child: const Icon(
-                        Icons.refresh_outlined,
-                        size: 16,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
+                // GestureDetector(
+                //   onTap: _canRefresh ? _onRefreshTap : null,
+                //   child: Opacity(
+                //     opacity: _canRefresh ? 1.0 : 0.4,
+                //     child: Container(
+                //       padding: const EdgeInsets.all(4),
+                //       decoration: BoxDecoration(
+                //         shape: BoxShape.circle,
+                //         color: primaryColor,
+                //       ),
+                //       child: const Icon(
+                //         Icons.refresh_outlined,
+                //         size: 16,
+                //         color: Colors.white,
+                //       ),
+                //     ),
+                //   ),
+                // ),
               ],
             ),
             Gaps.v10,
