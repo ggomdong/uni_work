@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
+// import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -129,25 +129,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  void _startCheckoutStatusChecker() {
-    _statusChecker?.cancel();
+  // void _startCheckoutStatusChecker() {
+  //   _statusChecker?.cancel();
 
-    _statusChecker = Timer.periodic(const Duration(seconds: 10), (_) {
-      if (!isCheckedIn || !mounted || workEnd == null) return;
+  //   _statusChecker = Timer.periodic(const Duration(seconds: 10), (_) {
+  //     if (!isCheckedIn || !mounted || workEnd == null) return;
 
-      final now = TimeOfDay.now();
-      final nowMinutes = now.hour * 60 + now.minute;
-      final endMinutes = workEnd!.hour * 60 + workEnd!.minute;
+  //     final now = TimeOfDay.now();
+  //     final nowMinutes = now.hour * 60 + now.minute;
+  //     final endMinutes = workEnd!.hour * 60 + workEnd!.minute;
 
-      final newStatus = nowMinutes < endMinutes;
+  //     final newStatus = nowMinutes < endMinutes;
 
-      if (newStatus != isEarlyCheckout) {
-        setState(() {
-          isEarlyCheckout = newStatus;
-        });
-      }
-    });
-  }
+  //     if (newStatus != isEarlyCheckout) {
+  //       setState(() {
+  //         isEarlyCheckout = newStatus;
+  //       });
+  //     }
+  //   });
+  // }
 
   void _refresh() {
     ref.read(attendanceProvider.notifier).refresh();

@@ -2,13 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../constants/constants.dart';
+import '../models/profile_model.dart';
+import '../views/widgets/common_app_bar.dart';
+import '../view_models/profile_view_model.dart';
 import '../repos/authentication_repo.dart';
-import '../view_models/settings_view_model.dart';
 import '../router.dart';
 import '../constants/gaps.dart';
-import '../constants/sizes.dart';
-import '../utils.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -23,11 +22,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       context: context,
       builder:
           (context) => CupertinoAlertDialog(
-            title: const Text("정말 로그아웃하시겠어요?"),
+            title: const Text("정말 로그아웃하시겠어요?", style: TextStyle(fontSize: 14)),
             actions: [
               CupertinoDialogAction(
                 onPressed: () => context.pop(),
-                child: const Text("아니오"),
+                child: const Text("아니오", style: TextStyle(fontSize: 14)),
               ),
               CupertinoDialogAction(
                 onPressed: () {
@@ -35,7 +34,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   context.go(RouteURL.login);
                 },
                 isDestructiveAction: true,
-                child: const Text("예"),
+                child: const Text("예", style: TextStyle(fontSize: 14)),
               ),
             ],
           ),
@@ -44,125 +43,290 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = isDarkMode(ref);
+    // final isDark = isDarkMode(ref);
+    final state = ref.watch(profileViewModelProvider);
+    final vm = ref.read(profileViewModelProvider.notifier);
+
     return Scaffold(
-      backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
-      body: SafeArea(
-        child: DefaultTabController(
-          initialIndex: 0,
-          length: 0,
-          child: NestedScrollView(
-            headerSliverBuilder: (context, innerBoxIsScrolled) {
-              return [
-                SliverAppBar(
-                  centerTitle: true,
-                  titleSpacing: 0,
-                  title: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Image.asset(logo, width: 133, height: 50),
-                      Text(
-                        "근태관리",
-                        style: TextStyle(color: Colors.grey.shade700),
-                      ),
-                    ],
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Sizes.size16,
-                    ),
-                    child: Column(
-                      children: [
-                        Gaps.v48,
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "이름",
-                                  style: TextStyle(
-                                    fontSize: Sizes.size28,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                Gaps.v3,
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: Sizes.size12,
-                                        vertical: Sizes.size5,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.shade100,
-                                        borderRadius: BorderRadius.circular(
-                                          Sizes.size40,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        "이메일",
-                                        style: TextStyle(
-                                          fontSize: Sizes.size16,
-                                          color: Colors.grey.shade500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Gaps.v10,
-                              ],
-                            ),
-                          ],
-                        ),
-                        Gaps.v6,
-                        Divider(thickness: 0.5),
-                        // SwitchListTile.adaptive(
-                        //   contentPadding: EdgeInsets.symmetric(
-                        //     horizontal: Sizes.size20,
-                        //   ),
-                        //   value: ref.watch(settingsProvider).darkMode,
-                        //   onChanged:
-                        //       (value) => ref
-                        //           .read(settingsProvider.notifier)
-                        //           .setDarkMode(value),
-                        //   title: const Text(
-                        //     "다크모드",
-                        //     style: TextStyle(fontSize: Sizes.size18),
-                        //   ),
-                        //   secondary: Icon(
-                        //     isDark
-                        //         ? Icons.dark_mode_outlined
-                        //         : Icons.light_mode_outlined,
-                        //   ),
-                        // ),
-                        ListTile(
-                          leading: Icon(Icons.logout),
-                          title: const Text(
-                            "로그아웃",
-                            style: TextStyle(fontSize: Sizes.size18),
-                          ),
-                          textColor: Colors.red,
-                          onTap: () => _onShowModal(context, ref),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // SliverPersistentHeader(
-                //   delegate: PersistentTabBar(),
-                //   pinned: true,
-                // ),
-              ];
-            },
-            body: TabBarView(children: [
-                        ],
-                      ),
+      appBar: CommonAppBar(
+        actions: [
+          IconButton(
+            tooltip: "새로고침",
+            onPressed: () => vm.refresh(),
+            icon: const Icon(Icons.refresh),
           ),
+        ],
+      ),
+      body: SafeArea(
+        child: state.when(
+          data: (profile) {
+            if (profile == null) {
+              return _Empty(onRetry: vm.refresh);
+            }
+            return RefreshIndicator(
+              onRefresh: vm.refresh,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _HeaderCard(profile: profile),
+                  Gaps.v16,
+                  _InfoTile(
+                    label: '부서',
+                    value: profile.dept,
+                    icon: Icons.apartment,
+                  ),
+                  Gaps.v8,
+                  _InfoTile(
+                    label: '직위',
+                    value: profile.position,
+                    icon: Icons.badge,
+                  ),
+                  Gaps.v8,
+                  _InfoTile(
+                    label: '이름',
+                    value: profile.empName,
+                    icon: Icons.person,
+                  ),
+                  Gaps.v8,
+                  _InfoTile(
+                    label: 'ID(휴대폰번호)',
+                    value: profile.username,
+                    icon: Icons.phone_iphone,
+                  ),
+                  Gaps.v8,
+                  _InfoTile(
+                    label: 'E-mail',
+                    value: profile.email,
+                    icon: Icons.alternate_email,
+                  ),
+                  Gaps.v24,
+                  Expanded(
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () => _onShowModal(context, ref),
+                      icon: const Icon(Icons.logout),
+                      label: const Text(
+                        '로그아웃',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+          loading: () => const _Loading(),
+          error: (e, _) => _Error(onRetry: vm.refresh, message: e.toString()),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderCard extends StatelessWidget {
+  final ProfileModel profile;
+  const _HeaderCard({required this.profile});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primary = theme.primaryColor;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            primary.withValues(alpha: 0.12),
+            primary.withValues(alpha: 0.04),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: primary.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: primary,
+            radius: 28,
+            child: Text(
+              profile.empName.isNotEmpty
+                  ? profile.empName.characters.first
+                  : '?',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+            ),
+          ),
+          Gaps.h16,
+          Expanded(
+            child: Wrap(
+              runSpacing: 6,
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  profile.empName,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                _Chip(text: profile.dept),
+                _Chip(text: profile.position),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String text;
+  const _Chip({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.primaryColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        text,
+        style: theme.textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: theme.colorScheme.primary,
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  const _InfoTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        color: theme.primaryColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.primaryColor.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: theme.primaryColor),
+          Gaps.h12,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.hintColor,
+                  ),
+                ),
+                Gaps.v2,
+                Text(
+                  value.isNotEmpty ? value : '-',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Loading extends StatelessWidget {
+  const _Loading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: CircularProgressIndicator());
+  }
+}
+
+class _Error extends StatelessWidget {
+  final VoidCallback onRetry;
+  final String? message;
+  const _Error({required this.onRetry, this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 40),
+            Gaps.v12,
+            Text(
+              '프로필 정보를 불러오지 못했습니다.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            if (message != null) ...[
+              Gaps.v6,
+              Text(message!, style: Theme.of(context).textTheme.labelSmall),
+            ],
+            Gaps.v12,
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('다시 시도'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Empty extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _Empty({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.person_off_outlined, size: 40),
+            Gaps.v12,
+            const Text('표시할 프로필 정보가 없습니다.'),
+            Gaps.v12,
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('새로고침'),
+            ),
+          ],
         ),
       ),
     );
