@@ -2,9 +2,9 @@ import '../models/monthly_attendance_model.dart';
 import '../view_models/monthly_attendance_view_model.dart';
 import '../constants/gaps.dart';
 import '../views/widgets/common_app_bar.dart';
-import '../views/widgets/stat_item.dart';
+// import '../views/widgets/stat_item.dart';
 import '../views/widgets/month_date_selector.dart';
-import '../utils.dart';
+// import '../utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -52,7 +52,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = isDarkMode(ref);
+    // final isDark = isDarkMode(ref);
 
     final monthly = ref.watch(
       monthlyAttendanceProvider((

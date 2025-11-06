@@ -6,7 +6,7 @@ import '../models/attendance_model.dart';
 
 class AttendanceViewModel extends AsyncNotifier<AttendanceModel> {
   late final AttendanceRepository _repo;
-  Timer? _pollingTimer;
+  // Timer? _pollingTimer;
 
   @override
   Future<AttendanceModel> build() async {
@@ -19,13 +19,13 @@ class AttendanceViewModel extends AsyncNotifier<AttendanceModel> {
     return await _repo.fetchTodayAttendance();
   }
 
-  void _startPolling() {
-    _pollingTimer?.cancel();
+  // void _startPolling() {
+  //   _pollingTimer?.cancel();
 
-    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
-      refresh();
-    });
-  }
+  //   _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
+  //     refresh();
+  //   });
+  // }
 
   Future<void> submitWork() async {
     try {
