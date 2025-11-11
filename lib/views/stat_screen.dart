@@ -12,8 +12,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 
-/// minutes 추출 함수 타입
-typedef MinutesAccessor<T> = int? Function(T rec);
+/// seconds 추출 함수 타입
+typedef SecondsAccessor<T> = int? Function(T rec);
+
+/// 지각/조퇴/연장/휴근이 존재하는지 판단하는 헬퍼 함수
+bool hasLongValue<T>(
+  List<T> records,
+  SecondsAccessor<T> getSeconds,
+  bool Function(T rec) isCountable,
+) {
+  for (final r in records) {
+    if (isCountable(r) && (getSeconds(r) ?? 0) > 0) {
+      return true; // 1회 이상 존재
+    }
+  }
+  return false; // 전부 0초면 짧은 값(예: "0회")
+}
 
 class StatScreen extends ConsumerStatefulWidget {
   const StatScreen({super.key});
@@ -32,25 +46,36 @@ class _StatScreenState extends ConsumerState<StatScreen> {
       ValueNotifier<MonthlyAttendanceModel?>(null);
   final Map<int, MonthlyAttendanceModel> attendanceMap = {};
 
-  /// (발생 횟수, 총 분) 문자열로 반환: "n회, m분"
-  String formatCountAndMinutes<T>(
+  String _secondsToHms(int seconds) {
+    if (seconds <= 0) return "00:00:00";
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    final hh = h.toString().padLeft(2, '0');
+    final mm = m.toString().padLeft(2, '0');
+    final ss = s.toString().padLeft(2, '0');
+    return "$hh:$mm:$ss";
+  }
+
+  /// (발생 횟수, 총 HH:MM:SS) 문자열로 반환: "n회, HH:MM:SS"
+  String formatCountAndSeconds<T>(
     List<T> records,
-    MinutesAccessor<T> getMinutes,
+    SecondsAccessor<T> getSeconds,
     bool Function(T rec) isCountable,
   ) {
-    if (records.isEmpty) return "0회, 0분";
-    int total = 0;
+    if (records.isEmpty) return "0회";
+    int totalSeconds = 0;
     int count = 0;
     for (final r in records) {
       if (isCountable(r)) {
-        final m = getMinutes(r) ?? 0;
-        if (m > 0) {
+        final s = getSeconds(r) ?? 0;
+        if (s > 0) {
           count++;
-          total += m;
+          totalSeconds += s;
         }
       }
     }
-    return "$count회, $total분";
+    return count == 0 ? "$count회" : "$count회, ${_secondsToHms(totalSeconds)}";
   }
 
   List<String> _codesOf(int millis) {
@@ -129,6 +154,7 @@ class _StatScreenState extends ConsumerState<StatScreen> {
               title: "정상",
               value:
                   "${records.where((r) => (r.statusCodes?.contains('NORMAL') ?? false)).length} 일",
+              isLong: false,
               color: themeOf("NORMAL").fg,
             ),
             StatItemMini(
@@ -136,15 +162,20 @@ class _StatScreenState extends ConsumerState<StatScreen> {
               title: "오류",
               value:
                   "${records.where((r) => (r.statusCodes?.contains('ERROR') ?? false)).length} 일",
+              isLong: false,
               color: themeOf("ERROR").fg,
             ),
-            // 필요 항목 추가...
             StatItemMini(
               icon: Icons.timer_off,
               title: "지각",
-              value: formatCountAndMinutes(
+              value: formatCountAndSeconds(
                 records,
-                (r) => r.lateMinutes,
+                (r) => r.lateSeconds,
+                (r) => (r.statusCodes?.contains('LATE') ?? false),
+              ),
+              isLong: hasLongValue(
+                records,
+                (r) => r.lateSeconds,
                 (r) => (r.statusCodes?.contains('LATE') ?? false),
               ),
               color: themeOf("LATE").fg,
@@ -152,9 +183,14 @@ class _StatScreenState extends ConsumerState<StatScreen> {
             StatItemMini(
               icon: Icons.logout,
               title: "조퇴",
-              value: formatCountAndMinutes(
+              value: formatCountAndSeconds(
                 records,
-                (r) => r.earlyMinutes,
+                (r) => r.earlySeconds,
+                (r) => (r.statusCodes?.contains('EARLY') ?? false),
+              ),
+              isLong: hasLongValue(
+                records,
+                (r) => r.earlySeconds,
                 (r) => (r.statusCodes?.contains('EARLY') ?? false),
               ),
               color: themeOf("EARLY").fg,
@@ -162,9 +198,14 @@ class _StatScreenState extends ConsumerState<StatScreen> {
             StatItemMini(
               icon: Icons.more_time,
               title: "연장",
-              value: formatCountAndMinutes(
+              value: formatCountAndSeconds(
                 records,
-                (r) => r.overtimeMinutes,
+                (r) => r.overtimeSeconds,
+                (r) => (r.statusCodes?.contains('OVERTIME') ?? false),
+              ),
+              isLong: hasLongValue(
+                records,
+                (r) => r.overtimeSeconds,
                 (r) => (r.statusCodes?.contains('OVERTIME') ?? false),
               ),
               color: themeOf("OVERTIME").fg,
@@ -172,9 +213,14 @@ class _StatScreenState extends ConsumerState<StatScreen> {
             StatItemMini(
               icon: Icons.holiday_village,
               title: "휴근",
-              value: formatCountAndMinutes(
+              value: formatCountAndSeconds(
                 records,
-                (r) => r.holidayMinutes,
+                (r) => r.holidaySeconds,
+                (r) => (r.statusCodes?.contains('HOLIDAY') ?? false),
+              ),
+              isLong: hasLongValue(
+                records,
+                (r) => r.holidaySeconds,
                 (r) => (r.statusCodes?.contains('HOLIDAY') ?? false),
               ),
               color: themeOf("HOLIDAY").fg,

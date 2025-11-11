@@ -24,11 +24,11 @@ class MonthlyAttendanceModel {
   final int? workColorCode;
   final String? workColorHex;
 
-  // 분(min) 지표 (휴게 반영)
-  final int? lateMinutes;
-  final int? earlyMinutes;
-  final int? overtimeMinutes;
-  final int? holidayMinutes;
+  // 시간(초) 지표 (휴게 반영)
+  final int? lateSeconds;
+  final int? earlySeconds;
+  final int? overtimeSeconds;
+  final int? holidaySeconds;
 
   // 편의 boolean
   final bool? isLate;
@@ -48,10 +48,10 @@ class MonthlyAttendanceModel {
     this.workName,
     this.workColorCode,
     this.workColorHex,
-    this.lateMinutes,
-    this.earlyMinutes,
-    this.overtimeMinutes,
-    this.holidayMinutes,
+    this.lateSeconds,
+    this.earlySeconds,
+    this.overtimeSeconds,
+    this.holidaySeconds,
     this.isLate,
     this.isEarlyCheckout,
     this.isOvertime,
@@ -74,10 +74,10 @@ class MonthlyAttendanceModel {
       workName: json['work_name'] as String?,
       workColorCode: json['work_color_code'] as int?,
       workColorHex: json['work_color_hex'] as String?,
-      lateMinutes: json['late_minutes'] as int?,
-      earlyMinutes: json['early_minutes'] as int?,
-      overtimeMinutes: json['overtime_minutes'] as int?,
-      holidayMinutes: json['holiday_minutes'] as int?,
+      lateSeconds: json['late_seconds'] as int?,
+      earlySeconds: json['early_seconds'] as int?,
+      overtimeSeconds: json['overtime_seconds'] as int?,
+      holidaySeconds: json['holiday_seconds'] as int?,
       isLate: json['is_late'] as bool?,
       isEarlyCheckout: json['is_early_checkout'] as bool?,
       isOvertime: json['is_overtime'] as bool?,
