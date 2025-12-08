@@ -15,7 +15,7 @@ void main() async {
 
   await initializeDateFormatting('ko_KR', null);
 
-  await dotenv.load();
+  // await dotenv.load();
 
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
@@ -86,7 +86,7 @@ class App extends ConsumerWidget {
           actionsIconTheme: IconThemeData(color: Colors.grey.shade100),
           iconTheme: IconThemeData(color: Colors.grey.shade100),
         ),
-        bottomAppBarTheme: BottomAppBarTheme(color: Colors.grey.shade900),
+        // bottomAppBarTheme: BottomAppBarTheme(color: Colors.grey.shade900),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../utils.dart';
 import '../models/profile_model.dart';
 import '../views/widgets/common_app_bar.dart';
 import '../view_models/profile_view_model.dart';
@@ -63,59 +64,61 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             if (profile == null) {
               return _Empty(onRetry: vm.refresh);
             }
-            return RefreshIndicator(
-              onRefresh: vm.refresh,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  _HeaderCard(profile: profile),
-                  Gaps.v16,
-                  _InfoTile(
-                    label: '부서',
-                    value: profile.dept,
-                    icon: Icons.apartment,
-                  ),
-                  Gaps.v8,
-                  _InfoTile(
-                    label: '직위',
-                    value: profile.position,
-                    icon: Icons.badge,
-                  ),
-                  Gaps.v8,
-                  _InfoTile(
-                    label: '이름',
-                    value: profile.empName,
-                    icon: Icons.person,
-                  ),
-                  Gaps.v8,
-                  _InfoTile(
-                    label: 'ID(휴대폰번호)',
-                    value: profile.username,
-                    icon: Icons.phone_iphone,
-                  ),
-                  Gaps.v8,
-                  _InfoTile(
-                    label: 'E-mail',
-                    value: profile.email,
-                    icon: Icons.alternate_email,
-                  ),
-                  Gaps.v24,
-                  Expanded(
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: () => _onShowModal(context, ref),
-                      icon: const Icon(Icons.logout),
-                      label: const Text(
-                        '로그아웃',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _HeaderCard(profile: profile),
+                Gaps.v16,
+                _InfoTile(
+                  label: '부서',
+                  value: profile.dept,
+                  icon: Icons.apartment,
+                ),
+                Gaps.v8,
+                _InfoTile(
+                  label: '직위',
+                  value: profile.position,
+                  icon: Icons.badge,
+                ),
+                Gaps.v8,
+                _InfoTile(
+                  label: '이름',
+                  value: profile.empName,
+                  icon: Icons.person,
+                ),
+                Gaps.v8,
+                _InfoTile(
+                  label: 'ID(휴대폰번호)',
+                  value: profile.username,
+                  icon: Icons.phone_iphone,
+                ),
+                Gaps.v8,
+                _InfoTile(
+                  label: 'E-mail',
+                  value: profile.email,
+                  icon: Icons.alternate_email,
+                ),
+                Gaps.v24,
+                SizedBox(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () => _onShowModal(context, ref),
+                    icon: const Icon(Icons.logout),
+                    label: const Text(
+                      '로그아웃',
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
-                ],
-              ),
+                ),
+                Gaps.v5,
+                TextButton(
+                  onPressed: () => openPrivacy(ref),
+                  child: const Text('개인정보처리방침', style: TextStyle(fontSize: 12)),
+                ),
+              ],
             );
           },
           loading: () => const _Loading(),

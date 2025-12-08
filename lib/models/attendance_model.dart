@@ -8,6 +8,7 @@ class AttendanceModel {
   final DateTime? checkoutTime;
   final bool isEarlyCheckout;
   // final List<String> notices; // 공지사항 목록
+  final bool canBypassBeacon;
 
   AttendanceModel({
     required this.empName,
@@ -19,6 +20,7 @@ class AttendanceModel {
     this.checkoutTime,
     required this.isEarlyCheckout,
     // required this.notices,
+    this.canBypassBeacon = false,
   });
 
   factory AttendanceModel.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class AttendanceModel {
       checkoutTime: DateTime.tryParse(json['checkout_time'] ?? ''),
       isEarlyCheckout: json['is_early_checkout'] ?? false,
       // notices: List<String>.from(json['notices'] ?? []),
+      canBypassBeacon: json['can_bypass_beacon'] as bool? ?? false,
     );
   }
 }

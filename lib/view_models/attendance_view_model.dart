@@ -5,12 +5,11 @@ import '../repos/attendance_repo.dart';
 import '../models/attendance_model.dart';
 
 class AttendanceViewModel extends AsyncNotifier<AttendanceModel> {
-  late final AttendanceRepository _repo;
+  AttendanceRepository get _repo => ref.read(attendanceRepo);
   // Timer? _pollingTimer;
 
   @override
   Future<AttendanceModel> build() async {
-    _repo = ref.read(attendanceRepo);
     // 자동 새로고침을 위한 polling 세팅 : 사용 x
     // _startPolling();
     // ref.onDispose(() {
@@ -38,8 +37,8 @@ class AttendanceViewModel extends AsyncNotifier<AttendanceModel> {
   }
 
   Future<void> refresh() async {
-    // 깜박이는게 싫으면 AsyncValue.loading()을 주석처리해야함
-    // state = const AsyncValue.loading();
+    // 출퇴근 버튼 누를때마다 refresh를 하므로, 그때마다 깜박이는건 좋지않아서 여긴 주석처리함
+    //state = const AsyncValue.loading();
     state = await AsyncValue.guard(
       () async => await _repo.fetchTodayAttendance(),
     );

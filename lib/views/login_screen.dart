@@ -227,6 +227,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     text: "로그인",
                     onTap: _onSubmitForm,
                   ),
+                  Gaps.v10,
+                  TextButton(
+                    onPressed: () => openPrivacy(ref),
+                    child: const Text(
+                      '개인정보처리방침',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
                 ],
               ),
             ),

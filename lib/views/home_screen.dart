@@ -2,10 +2,11 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-// import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../view_models/beacon_view_model.dart';
 import '../view_models/attendance_view_model.dart';
 import './widgets/common_app_bar.dart';
 import './widgets/work_time_card.dart';
@@ -23,14 +24,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with TickerProviderStateMixin {
   late AnimationController _airflowController;
 
-  // late final Ticker _progressTicker;
-  // final ValueNotifier<double> progressNotifier = ValueNotifier(0.0);
+  BeaconNotifier? _beaconNotifier;
 
-  bool beaconDetected = true; // 비콘 인식 여부
   bool isCheckedIn = false; // 출근 여부
   bool isEarlyCheckout = true; // 조퇴여부
   TimeOfDay? workEnd;
-  Timer? _statusChecker;
 
   bool _canRefresh = true;
 
@@ -129,61 +127,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  // void _startCheckoutStatusChecker() {
-  //   _statusChecker?.cancel();
-
-  //   _statusChecker = Timer.periodic(const Duration(seconds: 10), (_) {
-  //     if (!isCheckedIn || !mounted || workEnd == null) return;
-
-  //     final now = TimeOfDay.now();
-  //     final nowMinutes = now.hour * 60 + now.minute;
-  //     final endMinutes = workEnd!.hour * 60 + workEnd!.minute;
-
-  //     final newStatus = nowMinutes < endMinutes;
-
-  //     if (newStatus != isEarlyCheckout) {
-  //       setState(() {
-  //         isEarlyCheckout = newStatus;
-  //       });
-  //     }
-  //   });
-  // }
-
   void _refresh() {
     ref.read(attendanceProvider.notifier).refresh();
   }
-
-  // double calculateWorkProgress() {
-  //   if (checkInTime == null) return 0.0;
-
-  //   final workStartMinutes = workStart.hour * 60 + workStart.minute;
-  //   final workEndMinutes = workEnd.hour * 60 + workEnd.minute;
-  //   final totalWorkDuration = workEndMinutes - workStartMinutes;
-
-  //   final checkInMinutes = checkInTime!.hour * 60 + checkInTime!.minute;
-
-  //   // 퇴근했으면 현재 시간을 퇴근 시간으로 고정
-  //   final now = TimeOfDay.now();
-  //   final nowMinutes =
-  //       checkOutTime != null
-  //           ? checkOutTime!.hour * 60 + checkOutTime!.minute
-  //           : now.hour * 60 + now.minute;
-
-  //   // 퇴근 시간이 근무 종료보다 늦어도 최대값은 1.0
-  //   if (nowMinutes <= workStartMinutes) return 0.0;
-  //   if (nowMinutes >= workEndMinutes) return 1.0;
-
-  //   // 정시 출근 또는 조기 출근
-  //   if (checkInMinutes <= workStartMinutes) {
-  //     return (nowMinutes - workStartMinutes) / totalWorkDuration;
-  //   }
-
-  //   // 지각 출근한 경우
-  //   final adjustedDuration = workEndMinutes - checkInMinutes;
-  //   final adjustedProgress = (nowMinutes - checkInMinutes) / adjustedDuration;
-
-  //   return adjustedProgress.clamp(0.0, 1.0);
-  // }
 
   @override
   void initState() {
@@ -193,42 +139,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       duration: const Duration(seconds: 10),
     );
 
-    if (beaconDetected) {
-      _airflowController.repeat();
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _beaconNotifier = ref.read(beaconProvider.notifier);
+      _beaconNotifier!.addListenerRef();
+    });
 
-    // _progressTicker = createTicker((_) {
-    //   if (checkInTime != null && checkOutTime == null) {
-    //     final newProgress = calculateWorkProgress();
-    //     if ((newProgress - progressNotifier.value).abs() > 0.001) {
-    //       progressNotifier.value = newProgress;
-    //     }
-    //   }
-    // });
-
-    // _progressTicker.start();
+    // if (beaconDetected) {
+    //   _airflowController.repeat();
+    // }
   }
 
   @override
   void dispose() {
+    _beaconNotifier?.removeListenerRef();
     _airflowController.dispose();
-    _statusChecker?.cancel();
-    // _progressTicker.dispose();
-    // progressNotifier.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).primaryColor;
-    final progress = 0.0;
     const notice = "[공지] YOU&I 근태관리 앱이 오픈되었습니다.";
     final attendance = ref.watch(attendanceProvider);
+
+    final beaconDetected = ref.watch(isBeaconDetectedProvider);
+    // final beaconDetected = true;
+    final beacons = ref.watch(beaconListProvider);
+    final beaconError = ref.watch(beaconErrorProvider);
+
+    // 서버에서 내려온 "비콘 우회 권한" 여부 (없으면 false)
+    final canBypassBeacon = attendance.value?.canBypassBeacon ?? false;
+
+    // 실제 비콘이 잡히거나, 우회 권한이 있으면 true
+    final effectiveBeacon = beaconDetected || canBypassBeacon;
+
+    // 비콘 감지 상태에 따라 애니메이션 제어
+    if (effectiveBeacon && !_airflowController.isAnimating) {
+      _airflowController.repeat();
+    } else if (!effectiveBeacon && _airflowController.isAnimating) {
+      _airflowController.stop();
+    }
 
     return attendance.when(
       data: (data) {
         final today = DateTime.now();
-        // final today = DateTime.parse('2025-08-06');
+        // final today = DateTime.parse('2025-12-05');
         final schedule =
             (data.workStart == null && data.workEnd == null)
                 ? '근무 OFF'
@@ -243,27 +198,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             (data.workEnd != null && data.workEnd!.isNotEmpty)
                 ? parseTimeOfDay(data.workEnd!)
                 : null;
-        // 출근했고, 근무스케쥴(종료시간)이 등록되어 있으면 조퇴/연장근무 판단을 위해 지속적인 갱신 수행
-        // 가급적 백엔드에 부담을 주는 작업은 지양하기 위해 일단 보류
-        // if (isCheckedIn && workEnd != null) {
-        //   _startCheckoutStatusChecker();
-        // }
 
         final content = contentBody(
           primaryColor,
           today,
           schedule,
           empName,
-          progress,
           notice,
           isEarlyCheckout,
           checkinTime,
           checkoutTime,
+          effectiveBeacon,
+          beacons,
+          beaconError,
         );
 
         return Scaffold(
           appBar: CommonAppBar(
             actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Icon(
+                  effectiveBeacon
+                      ? Icons.bluetooth_connected
+                      : Icons.bluetooth_disabled,
+                  color: effectiveBeacon ? Colors.green : Colors.grey,
+                ),
+              ),
               IconButton(
                 tooltip: "새로고침",
                 onPressed: _onRefreshTap,
@@ -272,7 +233,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ],
           ),
           body:
-              beaconDetected
+              effectiveBeacon
                   ? AnimatedBuilder(
                     animation: _airflowController,
                     builder: (context, child) {
@@ -298,11 +259,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     DateTime today,
     String schedule,
     String empName,
-    double progress,
     String notice,
     bool isEarlyCheckout,
     DateTime? checkinTime,
     DateTime? checkoutTime,
+    bool effectiveBeacon,
+    List beacons,
+    String? beaconError,
   ) {
     return SafeArea(
       child: Padding(
@@ -331,24 +294,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                 ),
                 Gaps.h12,
-                // GestureDetector(
-                //   onTap: _canRefresh ? _onRefreshTap : null,
-                //   child: Opacity(
-                //     opacity: _canRefresh ? 1.0 : 0.4,
-                //     child: Container(
-                //       padding: const EdgeInsets.all(4),
-                //       decoration: BoxDecoration(
-                //         shape: BoxShape.circle,
-                //         color: primaryColor,
-                //       ),
-                //       child: const Icon(
-                //         Icons.refresh_outlined,
-                //         size: 16,
-                //         color: Colors.white,
-                //       ),
-                //     ),
-                //   ),
-                // ),
               ],
             ),
             Gaps.v10,
@@ -387,78 +332,263 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ],
               ),
             ),
+
+            // 감지된 비콘 디버그 패널 (UUID/major/minor/거리)
+            // if (beacons.isNotEmpty)
+            //   Container(
+            //     margin: const EdgeInsets.only(top: 12),
+            //     padding: const EdgeInsets.all(12),
+            //     decoration: BoxDecoration(
+            //       color: Colors.white,
+            //       borderRadius: BorderRadius.circular(12),
+            //       boxShadow: const [
+            //         BoxShadow(
+            //           color: Colors.black12,
+            //           blurRadius: 6,
+            //           offset: Offset(0, 3),
+            //         ),
+            //       ],
+            //     ),
+            //     child: Column(
+            //       crossAxisAlignment: CrossAxisAlignment.start,
+            //       children: [
+            //         Text(
+            //           "감지된 비콘 (${beacons.length})",
+            //           style: const TextStyle(
+            //             fontSize: 13,
+            //             fontWeight: FontWeight.w700,
+            //           ),
+            //         ),
+            //         const SizedBox(height: 8),
+            //         // 높이가 너무 커지지 않게 제한
+            //         ConstrainedBox(
+            //           constraints: const BoxConstraints(maxHeight: 160),
+            //           child: ListView.separated(
+            //             shrinkWrap: true,
+            //             itemCount: beacons.length,
+            //             separatorBuilder: (_, __) => const SizedBox(height: 6),
+            //             itemBuilder: (_, i) {
+            //               final b = beacons[i];
+            //               final uuid = b.proximityUUID ?? "-";
+            //               final major = b.major?.toString() ?? "-";
+            //               final minor = b.minor?.toString() ?? "-";
+            //               final rssi = b.rssi?.toString() ?? "-";
+            //               final acc = _formatMeters(b.accuracy);
+
+            //               return Container(
+            //                 padding: const EdgeInsets.symmetric(
+            //                   horizontal: 10,
+            //                   vertical: 8,
+            //                 ),
+            //                 decoration: BoxDecoration(
+            //                   color: const Color(0xFFF7F9FA),
+            //                   borderRadius: BorderRadius.circular(10),
+            //                   border: Border.all(
+            //                     color: const Color(0xFFE6EAED),
+            //                   ),
+            //                 ),
+            //                 child: Row(
+            //                   children: [
+            //                     // 좌측: UUID 요약 (길면 축약 표시)
+            //                     Expanded(
+            //                       child: Column(
+            //                         crossAxisAlignment:
+            //                             CrossAxisAlignment.start,
+            //                         children: [
+            //                           SelectableText(
+            //                             uuid, // 전체 복사도 가능하게
+            //                             style: const TextStyle(
+            //                               fontSize: 12,
+            //                               fontWeight: FontWeight.w600,
+            //                             ),
+            //                           ),
+            //                           const SizedBox(height: 2),
+            //                           Text(
+            //                             "Major/Minor  $major / $minor",
+            //                             style: const TextStyle(
+            //                               fontSize: 11,
+            //                               color: Colors.black54,
+            //                             ),
+            //                           ),
+            //                         ],
+            //                       ),
+            //                     ),
+            //                     const SizedBox(width: 8),
+            //                     // 우측: 거리/RSSI
+            //                     Column(
+            //                       crossAxisAlignment: CrossAxisAlignment.end,
+            //                       children: [
+            //                         Text(
+            //                           "거리 $acc",
+            //                           style: const TextStyle(fontSize: 11),
+            //                         ),
+            //                         Text(
+            //                           "RSSI $rssi dBm",
+            //                           style: const TextStyle(
+            //                             fontSize: 11,
+            //                             color: Colors.black54,
+            //                           ),
+            //                         ),
+            //                       ],
+            //                     ),
+            //                     const SizedBox(width: 6),
+            //                     // 복사 버튼 (UUID 복사)
+            //                     IconButton(
+            //                       icon: const Icon(Icons.copy, size: 18),
+            //                       onPressed: () async {
+            //                         await Clipboard.setData(
+            //                           ClipboardData(text: uuid),
+            //                         );
+            //                         if (context.mounted) {
+            //                           ScaffoldMessenger.of(
+            //                             context,
+            //                           ).showSnackBar(
+            //                             const SnackBar(
+            //                               content: Text("UUID 복사됨"),
+            //                             ),
+            //                           );
+            //                         }
+            //                       },
+            //                       tooltip: "UUID 복사",
+            //                     ),
+            //                   ],
+            //                 ),
+            //               );
+            //             },
+            //           ),
+            //         ),
+            //       ],
+            //     ),
+            //   ),
+            Gaps.v12,
+            if (beaconError != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3F0),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFFC5B8)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.location_off, color: Color(0xFFD95C36)),
+                    Gaps.h12,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "비콘 인식을 위해\n위치/블루투스 권한이 필요해요",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF8A3A21),
+                            ),
+                          ),
+                          Text(
+                            "권한 설정 후 앱을 재시작해주세요.", // BeaconNotifier에서 내려준 에러 메시지
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.redAccent,
+                            ),
+                          ),
+                          // Gaps.v4,
+                          // Text(
+                          //   beaconError, // BeaconNotifier에서 내려준 에러 메시지
+                          //   style: const TextStyle(
+                          //     fontSize: 12,
+                          //     color: Color(0xFF8A3A21),
+                          //   ),
+                          // ),
+                        ],
+                      ),
+                    ),
+                    Gaps.h12,
+                    TextButton(
+                      onPressed: () async {
+                        // 앱 권한 설정 화면으로 바로 이동
+                        await openAppSettings();
+                      },
+                      child: const Text(
+                        "권한 설정",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             Expanded(
               child: Center(
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // if (isCheckedIn)
-                    //   SizedBox(
-                    //     width: 160,
-                    //     height: 160,
-                    //     child: ValueListenableBuilder<double>(
-                    //       valueListenable: progressNotifier,
-                    //       builder: (context, progress, _) {
-                    //         return CustomPaint(
-                    //           painter: DonutProgressPainter(
-                    //             progress,
-                    //             primaryColor,
-                    //           ),
-                    //         );
-                    //       },
-                    //     ),
-                    //   ),
                     GestureDetector(
-                      onTapUp: (_) {
-                        triggerHaptic(context);
-                        _refresh();
-                        _confirmCheckInOut();
-                      },
-                      child: Container(
-                        width: 130,
-                        height: 130,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 4,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                isCheckedIn
-                                    ? Icons.night_shelter
-                                    : Icons.local_hospital,
-                                size: 36,
-                                color:
-                                    isCheckedIn
-                                        ? Color(0xFFFF6B57)
-                                        : Color(0xFF02B3BB),
-                              ),
-                              Gaps.v4,
-                              Text(
-                                isCheckedIn
-                                    ? isEarlyCheckout
-                                        ? "조퇴하기"
-                                        : "연장근무 후 퇴근"
-                                    : "출근하기",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color:
-                                      isCheckedIn
-                                          ? Color(0xFFB24030)
-                                          : Color(0xFF007B80),
-                                ),
+                      onTapUp:
+                          effectiveBeacon
+                              ? (_) {
+                                triggerHaptic(context);
+                                _refresh();
+                                _confirmCheckInOut();
+                              }
+                              : null,
+                      child: Opacity(
+                        opacity: effectiveBeacon ? 1.0 : 0.5,
+                        child: Container(
+                          width: 130,
+                          height: 130,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
                               ),
                             ],
+                          ),
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isCheckedIn
+                                      ? Icons.night_shelter
+                                      : Icons.local_hospital,
+                                  size: 36,
+                                  color:
+                                      isCheckedIn
+                                          ? Color(0xFFFF6B57)
+                                          : Color(0xFF02B3BB),
+                                ),
+                                Gaps.v4,
+                                Text(
+                                  isCheckedIn
+                                      ? isEarlyCheckout
+                                          ? "조퇴하기"
+                                          : "연장근무 후 퇴근"
+                                      : "출근하기",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color:
+                                        isCheckedIn
+                                            ? Color(0xFFB24030)
+                                            : Color(0xFF007B80),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -468,6 +598,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
             ),
             WorkTimeCard(checkinTime: checkinTime, checkoutTime: checkoutTime),
+            // Flexible(
+            //   child: Align(
+            //     alignment: Alignment.bottomCenter,
+            //     child: WorkTimeCard(
+            //       checkinTime: checkinTime,
+            //       checkoutTime: checkoutTime,
+            //     ),
+            //   ),
+            // ),
           ],
         ),
       ),
@@ -503,49 +642,4 @@ class AirflowBackgroundPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => true;
-}
-
-class DonutProgressPainter extends CustomPainter {
-  final double progress;
-  final Color color;
-
-  DonutProgressPainter(this.progress, this.color);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final strokeWidth = 16.0;
-    final radius = size.width / 2;
-    final center = Offset(radius, radius);
-
-    // 배경 원
-    final backgroundPaint =
-        Paint()
-          ..color = Colors.grey.shade200
-          ..strokeWidth = strokeWidth
-          ..style = PaintingStyle.stroke;
-
-    // 진행 원
-    final foregroundPaint =
-        Paint()
-          ..color =
-              color // 단색
-          ..strokeWidth = strokeWidth
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round; // 둥글게 끝남
-
-    final rect = Rect.fromCircle(
-      center: center,
-      radius: radius - strokeWidth / 2,
-    );
-    final startAngle = -pi / 2; // 12시 방향
-    final sweepAngle = 2 * pi * progress;
-
-    canvas.drawCircle(center, radius - strokeWidth / 2, backgroundPaint);
-    canvas.drawArc(rect, startAngle, sweepAngle, false, foregroundPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant DonutProgressPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.color != color;
-  }
 }
