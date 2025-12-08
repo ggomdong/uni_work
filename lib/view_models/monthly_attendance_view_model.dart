@@ -6,11 +6,10 @@ typedef YM = ({int year, int month});
 
 class MonthlyAttendanceViewModel
     extends FamilyAsyncNotifier<List<MonthlyAttendanceModel>, YM> {
-  late AttendanceRepository _repo;
+  AttendanceRepository get _repo => ref.read(attendanceRepo);
 
   @override
   Future<List<MonthlyAttendanceModel>> build(YM arg) async {
-    _repo = ref.read(attendanceRepo);
     return await _repo.fetchMonthlyAttendance(year: arg.year, month: arg.month);
   }
 

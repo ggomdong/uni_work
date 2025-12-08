@@ -8,11 +8,10 @@ final profileViewModelProvider =
     );
 
 class ProfileViewModel extends AsyncNotifier<ProfileModel?> {
-  late final ProfileRepository _repo;
+  ProfileRepository get _repo => ref.read(profileRepo);
 
   @override
   Future<ProfileModel?> build() async {
-    _repo = ref.read(profileRepo);
     return _repo.fetchProfile();
   }
 

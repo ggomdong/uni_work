@@ -20,6 +20,9 @@ class AuthenticationRepository {
   AuthenticationRepository(this._secureStorage, this._prefs) {
     _dio.options.baseUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000/';
 
+    // 🔥 URL 확인
+    print('🔥[AUTH][INIT] baseUrl = ${_dio.options.baseUrl}');
+
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
@@ -30,9 +33,21 @@ class AuthenticationRepository {
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
+
+          // 🔥 요청 로그 확인
+          // print('🔥[DIO][REQUEST] ${options.method} ${options.uri}');
+          // print('🔥[DIO][REQUEST] headers: ${options.headers}');
+          // print('🔥[DIO][REQUEST] data: ${options.data}');
+
           return handler.next(options);
         },
         onError: (error, handler) async {
+          // 🔥 에러 로그 확인
+          // print('🔥[DIO][ERROR] type=${error.type} message=${error.message}');
+          // print(
+          //   '🔥[DIO][ERROR] response=${error.response?.statusCode} ${error.response?.data}',
+          // );
+
           if (error.response?.statusCode == 401 &&
               error.response?.data['code'] == 'token_not_valid') {
             // 기기에 저장된 refreshToken 로드

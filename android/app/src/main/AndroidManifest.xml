@@ -1,6 +1,33 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET"/>
+    
+    <!-- ★ AltBeacon 호환을 위해 '선언'이 반드시 필요 (12+에서도 선언 자체는 필요) -->
+    <uses-permission android:name="android.permission.BLUETOOTH"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+
+    <!-- ★ neverForLocation 플래그 제거 버전으로 '치환' -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        tools:node="replace" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+
+    <!-- ★ 11 이하 호환용: 선언 자체가 필요 (AltBeacon 검사 통과용) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <!-- (선택) 백그라운드 스캔까지 필요하면 선언. 지금은 생략 가능 -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+
+    <!-- BLE 스캔 하드웨어 선언 -->
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="true"/>
+
     <application
-        android:label="uni_work"
+        android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

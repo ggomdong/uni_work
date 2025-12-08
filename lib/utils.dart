@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:vibration/vibration.dart';
 import 'package:intl/intl.dart';
 import '../view_models/settings_view_model.dart';
+import '../repos/authentication_repo.dart';
 
 bool isDarkMode(WidgetRef ref) => ref.watch(settingsProvider).darkMode;
 
@@ -67,4 +69,20 @@ String formatTime(DateTime? time) {
 TimeOfDay parseTimeOfDay(String timeStr) {
   final parts = timeStr.split(":");
   return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+}
+
+Future<void> openPrivacy(WidgetRef ref) async {
+  final authRepository = ref.read(authRepo);
+  final baseUrl =
+      authRepository.dio.options.baseUrl; // ex) https://wsnuni.co.kr/
+  final uri = Uri.parse(
+    '${baseUrl}wtm/privacy/',
+  ); // → https://wsnuni.co.kr/wtm/privacy/
+
+  final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+  if (!ok) {
+    // 필요하면 스낵바 등으로 안내
+    throw '개인정보처리방침 페이지를 열 수 없습니다.';
+  }
 }

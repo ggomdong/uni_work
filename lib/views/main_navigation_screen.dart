@@ -4,7 +4,6 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../utils.dart';
 import '../views/profile_screen.dart';
-import '../views/calendar_screen.dart';
 import '../views/stat_screen.dart';
 import '../views/widgets/nav_tab.dart';
 import '../constants/sizes.dart';
@@ -55,7 +54,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
       body: Stack(
         children: [
           Offstage(offstage: _selectedIndex != 0, child: const HomeScreen()),
-          Offstage(offstage: _selectedIndex != 1, child: CalendarScreen()),
+          // Offstage(offstage: _selectedIndex != 1, child: IBeaconScanner()),
           Offstage(offstage: _selectedIndex != 2, child: StatScreen()),
           Offstage(offstage: _selectedIndex != 3, child: ProfileScreen()),
         ],
