@@ -2,6 +2,8 @@ class AttendanceModel {
   final String empName;
   // final String dept;
   // final String position;
+  final String? moduleCat;
+  final String? moduleName;
   final String? workStart;
   final String? workEnd;
   final DateTime? checkinTime;
@@ -14,6 +16,8 @@ class AttendanceModel {
     required this.empName,
     // required this.dept,
     // required this.position,
+    this.moduleCat,
+    this.moduleName,
     this.workStart,
     this.workEnd,
     this.checkinTime,
@@ -28,6 +32,8 @@ class AttendanceModel {
       empName: json['emp_name'] ?? '',
       // dept: json['dept'] ?? '',
       // position: json['position'] ?? '',
+      moduleCat: json['module_cat'],
+      moduleName: json['module_name'],
       workStart: json['work_start'],
       workEnd: json['work_end'],
       checkinTime: DateTime.tryParse(json['checkin_time'] ?? ''),

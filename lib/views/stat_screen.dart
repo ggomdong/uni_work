@@ -108,6 +108,29 @@ class _StatScreenState extends ConsumerState<StatScreen> {
     final isDark = isDarkMode(ref);
     final size = MediaQuery.of(context).size;
 
+    // 현재 포커스된 연월
+    final ym = (year: _focusedDay.year, month: _focusedDay.month);
+
+    // 비영업 정보(날짜 + 요일) 가져오기
+    final nonBusinessInfo = ref
+        .watch(nonBusinessDayProvider(ym))
+        .maybeWhen(
+          data: (value) => value,
+          orElse:
+              () => NonBusinessDayInfo(
+                days: <DateTime>{},
+                weekdays: const <int>[],
+              ),
+        );
+
+    bool isNonBusinessDay(DateTime day) {
+      final key = DateTime(day.year, day.month, day.day);
+      return nonBusinessInfo.days.contains(key);
+    }
+
+    // 헤더 빨간색으로 표시할 요일들 (월=1, ..., 일=7)
+    final weekendDays = nonBusinessInfo.weekdays;
+
     final monthly = ref.watch(
       monthlyAttendanceProvider((
         year: _focusedDay.year,
@@ -245,12 +268,13 @@ class _StatScreenState extends ConsumerState<StatScreen> {
                         horizontal: Sizes.size16,
                       ),
                       child: TableCalendar(
-                        locale: 'ko_KR',
-                        rowHeight: size.height * 0.04,
-                        daysOfWeekHeight: 24,
-                        firstDay: DateTime.utc(2020, 1, 1),
-                        lastDay: DateTime.utc(2050, 12, 31),
                         focusedDay: _focusedDay,
+                        firstDay: DateTime.utc(2020, 1, 1),
+                        lastDay: DateTime.utc(9999, 12, 31),
+                        locale: 'ko_KR',
+                        weekendDays: weekendDays,
+                        daysOfWeekHeight: 24,
+                        rowHeight: size.height * 0.04,
                         selectedDayPredicate:
                             (day) => isSameDay(selectedDay, day),
                         enabledDayPredicate: (day) {
@@ -389,6 +413,7 @@ class _StatScreenState extends ConsumerState<StatScreen> {
                               isSelected: isSameDay(day, _selectedDay.value),
                               statusCodes: _codesOf(millis),
                               resolveStatusColor: resolveStatusColor,
+                              isNonBusinessDay: isNonBusinessDay(day),
                             );
                           },
 
@@ -406,6 +431,7 @@ class _StatScreenState extends ConsumerState<StatScreen> {
                               isSelected: true,
                               statusCodes: _codesOf(millis),
                               resolveStatusColor: resolveStatusColor,
+                              isNonBusinessDay: isNonBusinessDay(day),
                             );
                           },
 
@@ -428,6 +454,7 @@ class _StatScreenState extends ConsumerState<StatScreen> {
                               isSelected: isSelected,
                               statusCodes: _codesOf(millis),
                               resolveStatusColor: resolveStatusColor,
+                              isNonBusinessDay: isNonBusinessDay(day),
                             );
                           },
                         ),

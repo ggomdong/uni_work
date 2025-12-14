@@ -23,6 +23,7 @@ class StatDayCell extends StatelessWidget {
   final bool isSelected;
   final List<String> statusCodes; // 그대로 보여줄 코드들
   final Color Function(BuildContext, String?) resolveStatusColor;
+  final bool isNonBusinessDay;
 
   const StatDayCell({
     super.key,
@@ -31,10 +32,14 @@ class StatDayCell extends StatelessWidget {
     required this.isSelected,
     required this.statusCodes,
     required this.resolveStatusColor,
+    this.isNonBusinessDay = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    // 스케쥴 없는 경우
+    final bool isNoSchedule = statusCodes.contains('NOSCHEDULE');
+
     // 점에 표시할 코드: OFF/PAY/NOPAY 제외 + 순서 정렬
     final dotCodes =
         statusCodes.where((c) => !kDotExcluded.contains(c)).toList()..sort(
@@ -49,16 +54,30 @@ class StatDayCell extends StatelessWidget {
         .take(maxDots)
         .toList(growable: false);
 
-    final borderColor =
-        isSelected
-            ? Colors
-                .red // 선택일: 빨강
-            : (isToday ? Colors.blue : Colors.grey.shade300); // 오늘: 파랑, 일반: 회색
+    // === 스타일 계산 ===
+    final Color backgroundColor =
+        isNoSchedule ? Colors.grey.withValues(alpha: 0.15) : Colors.transparent;
 
-    final borderWidth = isSelected ? 1.2 : (isToday ? 1.0 : 0.5);
+    final Color borderColor =
+        isNoSchedule
+            ? Colors.grey.shade300
+            : (isSelected
+                ? Colors.red
+                : (isToday ? Colors.blue : Colors.grey.shade300));
+
+    final double borderWidth =
+        isNoSchedule ? 0.5 : (isSelected ? 1.2 : (isToday ? 1.0 : 0.5));
+
+    final Color dayTextColor =
+        isNoSchedule
+            ? Colors.grey
+            : (isNonBusinessDay
+                ? Colors.red
+                : (isToday ? Colors.blue : Colors.black87));
 
     return Container(
       decoration: BoxDecoration(
+        color: backgroundColor,
         border: Border.all(
           color: borderColor, // 조건부 색
           width: borderWidth, // 조건부 두께
@@ -78,6 +97,7 @@ class StatDayCell extends StatelessWidget {
                 '${day.day}',
                 style: TextStyle(
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: dayTextColor,
                 ),
               ),
             ),

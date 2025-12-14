@@ -84,3 +84,13 @@ class MonthlyAttendanceModel {
     );
   }
 }
+
+class NonBusinessDayInfo {
+  /// 비영업 "날짜"들 (공휴일 + 비영업 요일 날짜)
+  final Set<DateTime> days;
+
+  /// 비영업 "요일"들 (월=1, ..., 일=7 : Dart/TableCalendar 기준)
+  final List<int> weekdays;
+
+  NonBusinessDayInfo({required this.days, required this.weekdays});
+}

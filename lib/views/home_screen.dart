@@ -27,8 +27,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   BeaconNotifier? _beaconNotifier;
 
   bool isCheckedIn = false; // 출근 여부
-  bool isEarlyCheckout = true; // 조퇴여부
-  TimeOfDay? workEnd;
+  bool isEarlyCheckout = true; // 조퇴 여부
+  bool hasTime = false; // 근무일 여부
 
   bool _canRefresh = true;
 
@@ -58,7 +58,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         late Timer timer;
 
         Widget getDialogContent() {
-          if (!isCheckedIn && workEnd == null) {
+          if (!isCheckedIn && !hasTime) {
             return RichText(
               textAlign: TextAlign.center,
               text: TextSpan(
@@ -159,7 +159,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).primaryColor;
-    const notice = "[공지] YOU&I 근태관리 앱이 오픈되었습니다.";
+    const notice = "[공지] 유앤아이 근태관리 앱이 오픈되었습니다.";
     final attendance = ref.watch(attendanceProvider);
 
     final beaconDetected = ref.watch(isBeaconDetectedProvider);
@@ -184,20 +184,54 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       data: (data) {
         final today = DateTime.now();
         // final today = DateTime.parse('2025-12-05');
-        final schedule =
-            (data.workStart == null && data.workEnd == null)
-                ? '근무 OFF'
-                : "${data.workStart} ~ ${data.workEnd}";
+
+        final workStart = data.workStart; // "HH:mm" 또는 null
+        final workEnd = data.workEnd; // "HH:mm" 또는 null
+        final moduleCat =
+            data.moduleCat; // ex) "소정근로", "휴일근로", "유급휴무", "무급휴무", "OFF"
+        final moduleName =
+            data.moduleName; // ex) "연차", "경조휴가", "공가", "결근", "병가", "무급휴가" 등
+
+        // 1) 근무일인지 판단
+        String schedule;
+        hasTime =
+            workStart != null &&
+            workEnd != null &&
+            workStart.isNotEmpty &&
+            workEnd.isNotEmpty;
+
+        if (hasTime) {
+          // 예: "정규근무 09:00 ~ 18:00"
+          if (moduleCat != null && moduleCat.isNotEmpty) {
+            schedule = "$moduleCat($workStart ~ $workEnd)";
+          } else {
+            // cat이 혹시 없으면 기존 형식으로 fallback
+            schedule = "$workStart ~ $workEnd";
+          }
+        } else {
+          // 2) 시간이 없는 날: cat + name
+          if (moduleCat != null && moduleCat.isNotEmpty) {
+            if (moduleCat == 'OFF') {
+              schedule = moduleCat;
+            } else if (moduleName != null && moduleName.isNotEmpty) {
+              // 예: "유급휴무 (연차)", "무급휴무 (병가)"
+              schedule = "$moduleCat($moduleName)";
+            } else {
+              // 이름이 없으면 cat만
+              schedule = moduleCat;
+            }
+          } else {
+            // 3) 모듈 자체가 없는 완전한 무스케줄: 기존 메시지 유지
+            schedule = "(근무 스케쥴 없음)";
+          }
+        }
+
         final empName = data.empName;
         final checkinTime = data.checkinTime;
         final checkoutTime = data.checkoutTime;
 
         isCheckedIn = data.checkinTime != null;
         isEarlyCheckout = data.isEarlyCheckout;
-        workEnd =
-            (data.workEnd != null && data.workEnd!.isNotEmpty)
-                ? parseTimeOfDay(data.workEnd!)
-                : null;
 
         final content = contentBody(
           primaryColor,
@@ -529,74 +563,173 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
             Expanded(
               child: Center(
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    GestureDetector(
-                      onTapUp:
-                          effectiveBeacon
-                              ? (_) {
-                                triggerHaptic(context);
-                                _refresh();
-                                _confirmCheckInOut();
-                              }
-                              : null,
-                      child: Opacity(
-                        opacity: effectiveBeacon ? 1.0 : 0.5,
-                        child: Container(
-                          width: 130,
-                          height: 130,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 4,
-                                offset: Offset(0, 2),
+                child:
+                    (!hasTime && isCheckedIn)
+                        // 1) 근무일 아님 + 출근 상태 → 메시지 카드
+                        ? ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 320),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 18,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.96),
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Colors.black12,
+                                  blurRadius: 12,
+                                  offset: Offset(0, 6),
+                                ),
+                              ],
+                              border: Border.all(
+                                color: primaryColor.withValues(alpha: 0.35),
+                                width: 1,
                               ),
-                            ],
-                          ),
-                          child: Center(
+                            ),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
-                                  isCheckedIn
-                                      ? Icons.night_shelter
-                                      : Icons.local_hospital,
-                                  size: 36,
-                                  color:
-                                      isCheckedIn
-                                          ? Color(0xFFFF6B57)
-                                          : Color(0xFF02B3BB),
+                                // 아이콘 + 타이틀
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 32,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: primaryColor.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        Icons.info_outline,
+                                        size: 18,
+                                        color: primaryColor,
+                                      ),
+                                    ),
+                                    Gaps.h8,
+                                    const Text(
+                                      "근무표 변경 필요",
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                Gaps.v4,
-                                Text(
-                                  isCheckedIn
-                                      ? isEarlyCheckout
-                                          ? "조퇴하기"
-                                          : "연장근무 후 퇴근"
-                                      : "출근하기",
+                                Gaps.v12,
+                                // 본문 설명
+                                const Text(
+                                  "오늘은 근무일로 등록되어 있지 않습니다.\n"
+                                  "관리자에게 근무표 수정을 요청해 주세요.",
                                   style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color:
-                                        isCheckedIn
-                                            ? Color(0xFFB24030)
-                                            : Color(0xFF007B80),
+                                    fontSize: 13,
+                                    height: 1.5,
+                                    color: Colors.black54,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                Gaps.v16,
+                                // 하단 태그 느낌 안내
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: primaryColor.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: const Text(
+                                    "근무표 수정 후 퇴근 처리가 가능합니다.",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.redAccent,
+                                    ),
+                                    textAlign: TextAlign.center,
                                   ),
                                 ),
                               ],
                             ),
                           ),
+                        )
+                        // 2) 그 외 → 기존 버튼 유지
+                        : Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            GestureDetector(
+                              onTapUp:
+                                  effectiveBeacon
+                                      ? (_) {
+                                        triggerHaptic(context);
+                                        _refresh();
+                                        _confirmCheckInOut();
+                                      }
+                                      : null,
+                              child: Opacity(
+                                opacity: effectiveBeacon ? 1.0 : 0.5,
+                                child: Container(
+                                  width: 130,
+                                  height: 130,
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black12,
+                                        blurRadius: 4,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          isCheckedIn
+                                              ? Icons.night_shelter
+                                              : Icons.local_hospital,
+                                          size: 36,
+                                          color:
+                                              isCheckedIn
+                                                  ? Color(0xFFFF6B57)
+                                                  : Color(0xFF02B3BB),
+                                        ),
+                                        Gaps.v4,
+                                        Text(
+                                          isCheckedIn
+                                              ? isEarlyCheckout
+                                                  ? "조퇴하기"
+                                                  : "연장근무 후 퇴근"
+                                              : "출근하기",
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color:
+                                                isCheckedIn
+                                                    ? Color(0xFFB24030)
+                                                    : Color(0xFF007B80),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ),
+            // 바이패스 권한 있는 경우, 비콘 거리 / RSSI 간단 표시
+            if (effectiveBeacon && beacons.isNotEmpty)
+              _buildBeaconInfoRow(beacons),
             WorkTimeCard(checkinTime: checkinTime, checkoutTime: checkoutTime),
             // Flexible(
             //   child: Align(
@@ -609,6 +742,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             // ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 비콘 디버그 정보
+  Widget _buildBeaconInfoRow(List beacons) {
+    if (beacons.isEmpty) return const SizedBox.shrink();
+
+    // 가장 가까운 비콘 하나만 기준으로 사용
+    final sorted = [...beacons];
+    sorted.sort((a, b) => a.accuracy.compareTo(b.accuracy));
+    final nearest = sorted.first;
+
+    String formatMeters(double accuracy) {
+      if (accuracy <= 0) return '-';
+      if (accuracy < 1) {
+        return '${(accuracy * 100).toStringAsFixed(0)} cm';
+      }
+      return '${accuracy.toStringAsFixed(1)} m';
+    }
+
+    final distanceLabel = formatMeters(nearest.accuracy);
+    final rssiLabel = '${nearest.rssi} dBm';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.bluetooth_searching,
+            size: 14,
+            color: Colors.black38,
+          ),
+          Gaps.h16,
+          Text(
+            '최단거리 $distanceLabel · RSSI $rssiLabel',
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.black54,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
       ),
     );
   }

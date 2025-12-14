@@ -52,6 +52,37 @@ class AttendanceRepository {
       throw Exception("출결 처리 중 오류 발생: $e");
     }
   }
+
+  /// 비영업일(공휴일 + 비영업요일에 해당하는 날짜 + 비영업일 요일)을 가져옴
+  Future<NonBusinessDayInfo> fetchNonBusinessDays({
+    required int year,
+    required int month,
+  }) async {
+    final res = await _dio.get(
+      'api/non-business-days/',
+      queryParameters: {"year": year, "month": month},
+    );
+
+    final data = res.data as Map<String, dynamic>;
+
+    // 1) 날짜 리스트 파싱
+    final List<dynamic> rawDates =
+        data['non_business_days'] as List<dynamic>? ?? [];
+
+    final days =
+        rawDates.map<DateTime>((raw) {
+          final s = raw as String; // "YYYY-MM-DD"
+          final parts = s.split('-').map(int.parse).toList();
+          return DateTime(parts[0], parts[1], parts[2]);
+        }).toSet();
+
+    // 2) 요일 리스트 파싱 (월=1, ..., 일=7)
+    final rawWeekdays =
+        (data['non_business_weekdays'] as List<dynamic>? ?? const []);
+    final weekdays = rawWeekdays.map<int>((e) => (e as num).toInt()).toList();
+
+    return NonBusinessDayInfo(days: days, weekdays: weekdays);
+  }
 }
 
 final attendanceRepo = Provider<AttendanceRepository>((ref) {

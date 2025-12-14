@@ -28,3 +28,11 @@ final monthlyAttendanceProvider = AsyncNotifierProvider.family<
   List<MonthlyAttendanceModel>,
   YM
 >(MonthlyAttendanceViewModel.new);
+
+final nonBusinessDayProvider = FutureProvider.family<NonBusinessDayInfo, YM>((
+  ref,
+  ym,
+) async {
+  final repo = ref.read(attendanceRepo);
+  return repo.fetchNonBusinessDays(year: ym.year, month: ym.month);
+});
