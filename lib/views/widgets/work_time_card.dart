@@ -38,7 +38,7 @@ class WorkTimeCard extends StatelessWidget {
           child: Row(
             children: [
               // 출근
-              Expanded(child: _buildTimeBlock("출근시간", checkinTime)),
+              Expanded(child: _buildTimeBlock("출근시각", checkinTime)),
               // 구분선
               Container(
                 width: 1,
@@ -46,7 +46,7 @@ class WorkTimeCard extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(horizontal: 16),
               ),
               // 퇴근
-              Expanded(child: _buildTimeBlock("퇴근시간", checkoutTime)),
+              Expanded(child: _buildTimeBlock("퇴근시각", checkoutTime)),
             ],
           ),
         ),

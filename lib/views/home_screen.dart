@@ -138,15 +138,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       vsync: this,
       duration: const Duration(seconds: 10),
     );
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      _beaconNotifier = ref.read(beaconProvider.notifier);
-      _beaconNotifier!.addListenerRef();
-    });
-
-    // if (beaconDetected) {
-    //   _airflowController.repeat();
-    // }
   }
 
   @override
@@ -322,7 +313,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 Text(
                   schedule,
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: Colors.black,
                   ),
@@ -612,7 +603,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     ),
                                     Gaps.h8,
                                     const Text(
-                                      "근무표 변경 필요",
+                                      "출근 등록 완료",
                                       style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w700,
@@ -624,8 +615,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                 Gaps.v12,
                                 // 본문 설명
                                 const Text(
-                                  "오늘은 근무일로 등록되어 있지 않습니다.\n"
-                                  "관리자에게 근무표 수정을 요청해 주세요.",
+                                  "출근정보는 저장되었으나, 근무표상 휴무일입니다.\n"
+                                  "관리자에게 문의하세요.",
                                   style: TextStyle(
                                     fontSize: 13,
                                     height: 1.5,
@@ -644,14 +635,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                     color: primaryColor.withValues(alpha: 0.08),
                                     borderRadius: BorderRadius.circular(999),
                                   ),
-                                  child: const Text(
-                                    "근무표 수정 후 퇴근 처리가 가능합니다.",
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.redAccent,
+                                  child: GestureDetector(
+                                    onTap: _onRefreshTap,
+                                    child: const Text(
+                                      "세로고침",
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      textAlign: TextAlign.center,
                                     ),
-                                    textAlign: TextAlign.center,
                                   ),
                                 ),
                               ],
@@ -731,15 +724,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             if (effectiveBeacon && beacons.isNotEmpty)
               _buildBeaconInfoRow(beacons),
             WorkTimeCard(checkinTime: checkinTime, checkoutTime: checkoutTime),
-            // Flexible(
-            //   child: Align(
-            //     alignment: Alignment.bottomCenter,
-            //     child: WorkTimeCard(
-            //       checkinTime: checkinTime,
-            //       checkoutTime: checkoutTime,
-            //     ),
-            //   ),
-            // ),
           ],
         ),
       ),

@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../utils.dart';
+import '../constants/sizes.dart';
+import '../view_models/beacon_view_model.dart';
+import '../views/home_screen.dart';
 import '../views/profile_screen.dart';
 import '../views/stat_screen.dart';
 import '../views/widgets/nav_tab.dart';
-import '../constants/sizes.dart';
-import '../views/home_screen.dart';
 
 class MainNavigationScreen extends ConsumerStatefulWidget {
   static const String routeName = "mainNavigation";
@@ -20,11 +21,45 @@ class MainNavigationScreen extends ConsumerStatefulWidget {
       _MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
+class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen>
+    with WidgetsBindingObserver {
   final List<String> _tabs = ["home", "calendar", "stat", "profile"];
 
   late int _selectedIndex =
       _tabs.contains(widget.tab) ? _tabs.indexOf(widget.tab) : 0;
+
+  BeaconNotifier? _beacon;
+  bool _beaconHolding = false;
+  bool _appForeground = true;
+
+  bool get _shouldScan => _appForeground && _selectedIndex == 0; // 홈 탭만 스캔
+
+  void _syncBeacon() {
+    if (_beacon == null) return;
+
+    if (_shouldScan) {
+      if (!_beaconHolding) {
+        _beacon!.addListenerRef();
+        _beaconHolding = true;
+      }
+    } else {
+      if (_beaconHolding) {
+        _beacon!.removeListenerRef();
+        _beaconHolding = false;
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _beacon = ref.read(beaconProvider.notifier);
+      _syncBeacon();
+    });
+  }
 
   //최초 로딩시 라우팅을 적용함. url을 직접 쳤을때 대응을 위함
   @override
@@ -36,6 +71,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     } else {
       _selectedIndex = 0;
     }
+    _syncBeacon(); // 중요: URL로 들어왔을 때도 스캔 상태 동기화
   }
 
   void _onTap(int index) {
@@ -43,6 +79,23 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
     setState(() {
       _selectedIndex = index;
     });
+    _syncBeacon(); // 탭 변경 즉시 ON/OFF
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appForeground = (state == AppLifecycleState.resumed);
+    _syncBeacon(); // 백그라운드면 OFF, 복귀하면(홈 탭일 때만) ON
+  }
+
+  @override
+  void dispose() {
+    if (_beaconHolding) {
+      _beacon?.removeListenerRef();
+      _beaconHolding = false;
+    }
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override

@@ -9,7 +9,7 @@ class BeaconConfig {
 
   // 비콘 자체 설정 기본값 : 아직은 사용안함
   static const int defaultTxPower = -59;
-  static const int defaultStabilizeCount = 3;
+  static const int defaultStabilizeCount = 1;
   static const int defaultTimeoutSeconds = 10;
 }
 

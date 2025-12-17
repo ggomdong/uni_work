@@ -1,16 +1,17 @@
-import '../status_theme.dart';
-import '../models/monthly_attendance_model.dart';
-import '../view_models/monthly_attendance_view_model.dart';
-import '../constants/gaps.dart';
-import '../constants/sizes.dart';
-import '../views/widgets/common_app_bar.dart';
-import '../views/widgets/stat_item.dart';
-import '../views/widgets/stat_day_cell.dart';
-import '../utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../status_theme.dart';
+import '../utils.dart';
+import '../constants/gaps.dart';
+import '../constants/sizes.dart';
+import '../models/monthly_attendance_model.dart';
+import '../view_models/monthly_attendance_view_model.dart';
+import '../views/widgets/common_app_bar.dart';
+import '../views/widgets/stat_day_cell.dart';
+import '../views/widgets/stat_detail_card.dart';
+import '../views/widgets/stat_summary_bar.dart';
 
 /// seconds 추출 함수 타입
 typedef SecondsAccessor<T> = int? Function(T rec);
@@ -171,92 +172,67 @@ class _StatScreenState extends ConsumerState<StatScreen> {
             _selectedAttendance.value = attendanceMap[selectedKey];
           });
 
-          final items = [
-            StatItemMini(
-              icon: Icons.check_circle,
-              title: "정상",
-              value:
-                  "${records.where((r) => (r.statusCodes?.contains('NORMAL') ?? false)).length} 일",
-              isLong: false,
-              color: themeOf("NORMAL").fg,
-            ),
-            StatItemMini(
-              icon: Icons.cancel,
-              title: "오류",
-              value:
-                  "${records.where((r) => (r.statusCodes?.contains('ERROR') ?? false)).length} 일",
-              isLong: false,
-              color: themeOf("ERROR").fg,
-            ),
-            StatItemMini(
-              icon: Icons.timer_off,
-              title: "지각",
-              value: formatCountAndSeconds(
-                records,
-                (r) => r.lateSeconds,
-                (r) => (r.statusCodes?.contains('LATE') ?? false),
-              ),
-              isLong: hasLongValue(
-                records,
-                (r) => r.lateSeconds,
-                (r) => (r.statusCodes?.contains('LATE') ?? false),
-              ),
-              color: themeOf("LATE").fg,
-            ),
-            StatItemMini(
-              icon: Icons.logout,
-              title: "조퇴",
-              value: formatCountAndSeconds(
-                records,
-                (r) => r.earlySeconds,
-                (r) => (r.statusCodes?.contains('EARLY') ?? false),
-              ),
-              isLong: hasLongValue(
-                records,
-                (r) => r.earlySeconds,
-                (r) => (r.statusCodes?.contains('EARLY') ?? false),
-              ),
-              color: themeOf("EARLY").fg,
-            ),
-            StatItemMini(
-              icon: Icons.more_time,
-              title: "연장",
-              value: formatCountAndSeconds(
-                records,
-                (r) => r.overtimeSeconds,
-                (r) => (r.statusCodes?.contains('OVERTIME') ?? false),
-              ),
-              isLong: hasLongValue(
-                records,
-                (r) => r.overtimeSeconds,
-                (r) => (r.statusCodes?.contains('OVERTIME') ?? false),
-              ),
-              color: themeOf("OVERTIME").fg,
-            ),
-            StatItemMini(
-              icon: Icons.holiday_village,
-              title: "휴근",
-              value: formatCountAndSeconds(
-                records,
-                (r) => r.holidaySeconds,
-                (r) => (r.statusCodes?.contains('HOLIDAY') ?? false),
-              ),
-              isLong: hasLongValue(
-                records,
-                (r) => r.holidaySeconds,
-                (r) => (r.statusCodes?.contains('HOLIDAY') ?? false),
-              ),
-              color: themeOf("HOLIDAY").fg,
-            ),
-          ];
+          final holidayValue = formatCountAndSeconds(
+            records,
+            (r) => r.holidaySeconds,
+            (r) => (r.statusCodes?.contains('HOLIDAY') ?? false),
+          );
+          final holidayLong = hasLongValue(
+            records,
+            (r) => r.holidaySeconds,
+            (r) => (r.statusCodes?.contains('HOLIDAY') ?? false),
+          );
+
+          final overtimeValue = formatCountAndSeconds(
+            records,
+            (r) => r.overtimeSeconds,
+            (r) => (r.statusCodes?.contains('OVERTIME') ?? false),
+          );
+          final overtimeLong = hasLongValue(
+            records,
+            (r) => r.overtimeSeconds,
+            (r) => (r.statusCodes?.contains('OVERTIME') ?? false),
+          );
+
+          final lateValue = formatCountAndSeconds(
+            records,
+            (r) => r.lateSeconds,
+            (r) => (r.statusCodes?.contains('LATE') ?? false),
+          );
+          final lateLong = hasLongValue(
+            records,
+            (r) => r.lateSeconds,
+            (r) => (r.statusCodes?.contains('LATE') ?? false),
+          );
+
+          final earlyValue = formatCountAndSeconds(
+            records,
+            (r) => r.earlySeconds,
+            (r) => (r.statusCodes?.contains('EARLY') ?? false),
+          );
+          final earlyLong = hasLongValue(
+            records,
+            (r) => r.earlySeconds,
+            (r) => (r.statusCodes?.contains('EARLY') ?? false),
+          );
 
           return Column(
             children: [
               Gaps.v32,
-
-              StatGrid(items: items),
-
-              Gaps.v16,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Sizes.size16),
+                child: StatSummaryBar(
+                  holidayValue: holidayValue,
+                  holidayLong: holidayLong,
+                  overtimeValue: overtimeValue,
+                  overtimeLong: overtimeLong,
+                  lateValue: lateValue,
+                  lateLong: lateLong,
+                  earlyValue: earlyValue,
+                  earlyLong: earlyLong,
+                ),
+              ),
+              Gaps.v32,
 
               SizedBox(
                 height: size.height * 0.35,
@@ -463,167 +439,8 @@ class _StatScreenState extends ConsumerState<StatScreen> {
                   },
                 ),
               ),
-              SizedBox(
-                child: ValueListenableBuilder<MonthlyAttendanceModel?>(
-                  valueListenable: _selectedAttendance,
-                  builder: (context, record, _) {
-                    // DB에 row가 없거나, NOSCHEDULE인 경우는 동일하게 스케쥴없음으로 처리
-                    if (record == null ||
-                        (record.statusCodes?.contains('NOSCHEDULE') ?? false)) {
-                      return const Center(child: Text("근무 스케쥴이 없습니다."));
-                    }
-
-                    // 상태 리스트 준비
-                    final List<String> codes =
-                        (record.statusCodes ?? const <String>[]);
-                    final List<String> labels =
-                        (record.statusLabels ??
-                            (record.status != null
-                                ? <String>[record.status!]
-                                : const <String>[]));
-
-                    // 칩 위젯들 구성 (codes와 labels 길이가 다를 수도 있으니 방어)
-                    final int chipCount = labels.length;
-                    final chips = List<Widget>.generate(chipCount, (i) {
-                      final label = labels[i];
-                      final code = (i < codes.length) ? codes[i] : null;
-
-                      final bg = resolveChipBg(code); // 팔레트 기반 옅은 배경
-                      final theme = themeOf(code); // fg/border 등 접근
-                      final side =
-                          theme.border != null
-                              ? BorderSide(color: theme.border!)
-                              : BorderSide.none;
-                      return Chip(
-                        label: Text(
-                          label,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                        backgroundColor: bg,
-                        side: side,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      );
-                    });
-
-                    return Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Card(
-                        color: Colors.white,
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // 날짜 + 상태
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // 날짜
-                                  Expanded(
-                                    child: Text(
-                                      DateFormat(
-                                        'yyyy-MM-dd (E)',
-                                        'ko_KR',
-                                      ).format(record.recordDay),
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  // 칩들 (오른쪽 정렬 + 여러 줄 래핑)
-                                  Flexible(
-                                    child: Align(
-                                      alignment: Alignment.centerRight,
-                                      child: Wrap(
-                                        alignment: WrapAlignment.end,
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        children: chips,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Gaps.v1,
-
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.event_note,
-                                    size: 18,
-                                    color: Colors.blueGrey,
-                                  ),
-                                  Gaps.h4,
-                                  Text(
-                                    "근무: ${record.workCat ?? ''} (${record.workName ?? ''})",
-                                  ),
-                                ],
-                              ),
-                              Gaps.v4,
-
-                              // 근무시간
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.access_time,
-                                    size: 18,
-                                    color: Colors.black,
-                                  ),
-                                  Gaps.h4,
-                                  Text(
-                                    "일정: ${record.workStart ?? '--'} ~ ${record.workEnd ?? '--'}",
-                                  ),
-                                ],
-                              ),
-                              Gaps.v4,
-
-                              // 출근
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.login,
-                                    size: 18,
-                                    color: Colors.green,
-                                  ),
-                                  Gaps.h4,
-                                  Text("출근: ${record.checkinTime ?? '--'}"),
-                                ],
-                              ),
-                              Gaps.v4,
-
-                              // 퇴근
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.logout,
-                                    size: 18,
-                                    color: Colors.redAccent,
-                                  ),
-                                  Gaps.h4,
-                                  Text("퇴근: ${record.checkoutTime ?? '--'}"),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
+              Gaps.v16,
+              StatDetailCard(selectedAttendance: _selectedAttendance),
             ],
           );
         },

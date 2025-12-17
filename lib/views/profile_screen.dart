@@ -67,6 +67,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                Gaps.v32,
                 _HeaderCard(profile: profile),
                 Gaps.v16,
                 _InfoTile(
@@ -227,7 +228,7 @@ class _InfoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: theme.primaryColor.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),

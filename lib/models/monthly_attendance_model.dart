@@ -19,7 +19,7 @@ class MonthlyAttendanceModel {
   final List<String>? statusLabels;
 
   // 근무모듈
-  final String? workCat; // 정규근무, 휴일근무 등
+  final String? workCat; // 소정근로, 휴일근로 등
   final String? workName; // 평일(의사), 연차 등
   final int? workColorCode;
   final String? workColorHex;
