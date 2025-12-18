@@ -64,7 +64,7 @@ class _StatScreenState extends ConsumerState<StatScreen> {
     SecondsAccessor<T> getSeconds,
     bool Function(T rec) isCountable,
   ) {
-    if (records.isEmpty) return "0회";
+    if (records.isEmpty) return "-";
     int totalSeconds = 0;
     int count = 0;
     for (final r in records) {
@@ -76,7 +76,7 @@ class _StatScreenState extends ConsumerState<StatScreen> {
         }
       }
     }
-    return count == 0 ? "$count회" : "$count회, ${_secondsToHms(totalSeconds)}";
+    return count == 0 ? "-" : "$count회, ${_secondsToHms(totalSeconds)}";
   }
 
   List<String> _codesOf(int millis) {

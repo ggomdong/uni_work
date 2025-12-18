@@ -15,7 +15,7 @@ void main() async {
 
   await initializeDateFormatting('ko_KR', null);
 
-  await dotenv.load();
+  // await dotenv.load();
 
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 

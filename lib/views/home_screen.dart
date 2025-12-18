@@ -652,9 +652,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           ),
                         )
                         // 2) 그 외 → 기존 버튼 유지
-                        : Stack(
-                          alignment: Alignment.center,
+                        : Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
+                            Gaps.v20,
                             GestureDetector(
                               onTapUp:
                                   effectiveBeacon
@@ -716,13 +717,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                 ),
                               ),
                             ),
+
+                            if (effectiveBeacon && beacons.isNotEmpty)
+                              _buildBeaconInfoRow(beacons)
+                            else
+                              // 비콘 인식 여부와 상관없이 버튼위치를 일정하게 유지
+                              Gaps.v28,
                           ],
                         ),
               ),
             ),
-            // 바이패스 권한 있는 경우, 비콘 거리 / RSSI 간단 표시
-            if (effectiveBeacon && beacons.isNotEmpty)
-              _buildBeaconInfoRow(beacons),
             WorkTimeCard(checkinTime: checkinTime, checkoutTime: checkoutTime),
           ],
         ),
