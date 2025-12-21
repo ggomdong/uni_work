@@ -333,9 +333,15 @@ class BeaconNotifier extends StateNotifier<BeaconState> {
     _d('[BEACON] >>> ENTER _start()');
     if (!_prepared || state.isScanning) return;
 
-    // 안드로이드 깜빡임만 살짝 줄이는 주기 (iOS 영향 거의 없음)
-    await flutterBeacon.setScanPeriod(1000);
-    await flutterBeacon.setBetweenScanPeriod(500);
+    if (Platform.isAndroid) {
+      // 안드로이드: 공백(between) 제거로 끊김/미검출 구간 최소화
+      await flutterBeacon.setScanPeriod(1100);
+      await flutterBeacon.setBetweenScanPeriod(0);
+    } else {
+      // iOS: 현재 운영 중인 완화값 유지(필요 시)
+      await flutterBeacon.setScanPeriod(1000);
+      await flutterBeacon.setBetweenScanPeriod(500);
+    }
 
     if (_configs.isEmpty) {
       _w('[BEACON] _start() 시점에 _configs가 비어있습니다.');
