@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../app_refresh_service.dart';
 import '../status_theme.dart';
 import '../utils.dart';
 import '../constants/gaps.dart';
@@ -90,11 +91,11 @@ class _StatScreenState extends ConsumerState<StatScreen> {
   Future<void> _refreshMonthly() async {
     final ym = (year: _focusedDay.year, month: _focusedDay.month);
     try {
-      await ref.read(monthlyAttendanceProvider(ym).notifier).refresh();
+      await ref.read(appRefreshServiceProvider).refreshAll(ym: ym);
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text("월간 출결 정보를 갱신했어요.")));
+        ).showSnackBar(const SnackBar(content: Text("월간 통계 정보를 갱신했어요.")));
       }
     } catch (e) {
       if (mounted) {

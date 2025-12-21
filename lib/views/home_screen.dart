@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../app_refresh_service.dart';
 import '../view_models/beacon_view_model.dart';
 import '../view_models/attendance_view_model.dart';
 import './widgets/common_app_bar.dart';
@@ -45,14 +46,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   bool _canRefresh = true;
 
-  void _onRefreshTap() {
+  Future<void> _onRefreshTap() async {
     if (!_canRefresh) return;
 
     setState(() {
       _canRefresh = false;
     });
 
-    _refresh();
+    await _refreshAll();
 
     Future.delayed(const Duration(seconds: 5), () {
       if (mounted) {
@@ -191,8 +192,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  void _refresh() {
-    ref.read(attendanceProvider.notifier).refresh();
+  Future<void> _refreshAll() async {
+    final now = DateTime.now();
+    await ref
+        .read(appRefreshServiceProvider)
+        .refreshAll(ym: (year: now.year, month: now.month));
   }
 
   @override

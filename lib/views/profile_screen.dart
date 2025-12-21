@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../app_refresh_service.dart';
 import '../constants/gaps.dart';
 import '../models/profile_model.dart';
 import '../repos/authentication_repo.dart';
@@ -43,18 +44,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  Future<void> _refreshAll() async {
+    final now = DateTime.now();
+    await ref
+        .read(appRefreshServiceProvider)
+        .refreshAll(ym: (year: now.year, month: now.month));
+  }
+
   @override
   Widget build(BuildContext context) {
     // final isDark = isDarkMode(ref);
     final state = ref.watch(profileViewModelProvider);
-    final vm = ref.read(profileViewModelProvider.notifier);
 
     return Scaffold(
       appBar: CommonAppBar(
         actions: [
           IconButton(
             tooltip: "새로고침",
-            onPressed: () => vm.refresh(),
+            onPressed: _refreshAll,
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -63,7 +70,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         child: state.when(
           data: (profile) {
             if (profile == null) {
-              return _Empty(onRetry: vm.refresh);
+              return _Empty(onRetry: _refreshAll);
             }
             return ListView(
               padding: const EdgeInsets.all(16),
@@ -130,7 +137,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 icon: Icons.person_off_outlined,
                 error: e,
                 stackTrace: st,
-                onRetry: vm.refresh,
+                onRetry: _refreshAll,
               ),
         ),
       ),
