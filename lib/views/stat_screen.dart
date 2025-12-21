@@ -8,10 +8,11 @@ import '../constants/gaps.dart';
 import '../constants/sizes.dart';
 import '../models/monthly_attendance_model.dart';
 import '../view_models/monthly_attendance_view_model.dart';
-import '../views/widgets/common_app_bar.dart';
-import '../views/widgets/stat_day_cell.dart';
-import '../views/widgets/stat_detail_card.dart';
-import '../views/widgets/stat_summary_bar.dart';
+import './widgets/common_app_bar.dart';
+import './widgets/error_view.dart';
+import './widgets/stat_day_cell.dart';
+import './widgets/stat_detail_card.dart';
+import './widgets/stat_summary_bar.dart';
 
 /// seconds 추출 함수 타입
 typedef SecondsAccessor<T> = int? Function(T rec);
@@ -97,9 +98,11 @@ class _StatScreenState extends ConsumerState<StatScreen> {
       }
     } catch (e) {
       if (mounted) {
+        // 사용자에게는 정리된 메시지만 노출
+        final msg = humanizeErrorMessage(e);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text("갱신 실패: $e")));
+        ).showSnackBar(SnackBar(content: Text(msg)));
       }
     }
   }
@@ -152,7 +155,14 @@ class _StatScreenState extends ConsumerState<StatScreen> {
       body: monthly.when(
         loading:
             () => const Center(child: CircularProgressIndicator.adaptive()),
-        error: (err, _) => Center(child: Text("에러 발생: $err")),
+        error:
+            (err, st) => ErrorView(
+              title: '통계 정보를 불러오지 못했습니다',
+              icon: Icons.cloud_off,
+              error: err,
+              stackTrace: st,
+              onRetry: _refreshMonthly, // 중앙 새로고침 버튼
+            ),
         data: (records) {
           attendanceMap.clear();
           // 월간 데이터(records)를 날짜별로 매핑 (1일 = 1레코드)

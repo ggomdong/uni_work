@@ -10,30 +10,16 @@ class AttendanceViewModel extends AsyncNotifier<AttendanceModel> {
 
   @override
   Future<AttendanceModel> build() async {
-    // 자동 새로고침을 위한 polling 세팅 : 사용 x
-    // _startPolling();
-    // ref.onDispose(() {
-    //   _pollingTimer?.cancel();
-    // });
     return await _repo.fetchTodayAttendance();
   }
 
-  // void _startPolling() {
-  //   _pollingTimer?.cancel();
-
-  //   _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
-  //     refresh();
-  //   });
-  // }
-
   Future<void> submitWork() async {
-    try {
+    // throw 하지 말고, 성공/실패를 state로만 표현한다.
+    state = await AsyncValue.guard(() async {
       await _repo.submitWork();
-
-      await refresh();
-    } catch (e) {
-      throw Exception("출결 처리 중 오류 발생: $e");
-    }
+      // refresh()는 내부에서 fetch를 또 하니, 여기서 바로 fetch로 갱신해도 됨
+      return await _repo.fetchTodayAttendance();
+    });
   }
 
   Future<void> refresh() async {

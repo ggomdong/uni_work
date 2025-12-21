@@ -18,10 +18,10 @@ class StatDetailCard extends StatelessWidget {
       child: ValueListenableBuilder<MonthlyAttendanceModel?>(
         valueListenable: _selectedAttendance,
         builder: (context, record, _) {
-          // DB에 row가 없거나, NOSCHEDULE인 경우는 동일하게 스케쥴없음으로 처리
+          // DB에 row가 없거나, NOSCHEDULE인 경우는 동일하게 스케줄없음으로 처리
           if (record == null ||
               (record.statusCodes?.contains('NOSCHEDULE') ?? false)) {
-            return const Center(child: Text("근무 스케쥴이 없습니다."));
+            return const Center(child: Text("근로 스케줄이 없습니다."));
           }
 
           // 상태 리스트 준비
@@ -118,13 +118,13 @@ class StatDetailCard extends StatelessWidget {
                         ),
                         Gaps.h4,
                         Text(
-                          "근무: ${record.workCat ?? ''} (${record.workName ?? ''})",
+                          "근로: ${record.workCat ?? ''} (${record.workName ?? ''})",
                         ),
                       ],
                     ),
                     Gaps.v4,
 
-                    // 근무시간
+                    // 근로시간
                     Row(
                       children: [
                         const Icon(

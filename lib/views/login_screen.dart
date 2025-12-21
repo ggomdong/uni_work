@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -74,15 +75,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (mounted) {
         if (success) {
-          context.go(RouteURL.home);
           showSnackBar(context, '로그인 되었습니다.', Colors.blue);
+          return;
         } else {
-          final error = ref.read(loginProvider).error;
-          showSnackBar(
-            context,
-            error is String ? error : '알 수 없는 오류가 발생했습니다.',
-            Colors.red,
-          );
+          final async = ref.read(loginProvider);
+          final err = async.error;
+
+          String message = '로그인 실패';
+          if (err is String) {
+            message = err;
+          } else if (err is DioException) {
+            final data = err.response?.data;
+            if (data is Map<String, dynamic>) {
+              message =
+                  (data['message'] as String?) ??
+                  (data['detail'] as String?) ??
+                  message;
+            }
+          }
+
+          showSnackBar(context, message, Colors.red);
         }
       }
     }

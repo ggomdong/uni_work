@@ -37,7 +37,7 @@ class StatDayCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 스케쥴 없는 경우
+    // 스케줄 없는 경우
     final bool isNoSchedule = statusCodes.contains('NOSCHEDULE');
 
     // 점에 표시할 코드: OFF/PAY/NOPAY 제외 + 순서 정렬

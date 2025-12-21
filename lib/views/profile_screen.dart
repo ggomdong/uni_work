@@ -2,13 +2,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../utils.dart';
-import '../models/profile_model.dart';
-import '../views/widgets/common_app_bar.dart';
-import '../view_models/profile_view_model.dart';
-import '../repos/authentication_repo.dart';
-import '../router.dart';
 import '../constants/gaps.dart';
+import '../models/profile_model.dart';
+import '../repos/authentication_repo.dart';
+import '../view_models/profile_view_model.dart';
+import './widgets/common_app_bar.dart';
+import './widgets/error_view.dart';
+import '../router.dart';
+import '../utils.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -123,7 +124,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             );
           },
           loading: () => const _Loading(),
-          error: (e, _) => _Error(onRetry: vm.refresh, message: e.toString()),
+          error:
+              (e, st) => ErrorView(
+                title: '프로필 정보를 불러오지 못했습니다',
+                icon: Icons.person_off_outlined,
+                error: e,
+                stackTrace: st,
+                onRetry: vm.refresh,
+              ),
         ),
       ),
     );

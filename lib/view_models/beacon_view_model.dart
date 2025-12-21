@@ -324,6 +324,7 @@ class BeaconNotifier extends StateNotifier<BeaconState> {
     } catch (e) {
       _e('[BEACON] >>> _boot() ERROR:');
       _booting = false;
+      if (!mounted) return;
       state = state.copy(isScanning: false, error: e.toString());
     }
   }
@@ -417,6 +418,7 @@ class BeaconNotifier extends StateNotifier<BeaconState> {
             }
           },
           onError: (err, st) {
+            if (!mounted) return;
             _e('[BEACON] ranging error', err, st);
             state = state.copy(isScanning: false, error: '비콘 스캔 오류: $err');
           },
@@ -426,6 +428,8 @@ class BeaconNotifier extends StateNotifier<BeaconState> {
   Future<void> _stop() async {
     await _subRanging?.cancel();
     _subRanging = null;
+
+    if (!mounted) return;
     state = state.copy(isScanning: false, isDetected: false, beacons: []);
   }
 

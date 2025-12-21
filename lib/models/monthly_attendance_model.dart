@@ -1,7 +1,7 @@
 class MonthlyAttendanceModel {
   final DateTime recordDay;
 
-  // 근무스케쥴(HH:mm)
+  // 근로스케줄(HH:mm)
   final String? workStart;
   final String? workEnd;
 
@@ -11,14 +11,14 @@ class MonthlyAttendanceModel {
 
   // 상태 문자열 (예: 정상 + 연장)
   final String?
-  status; // 9가지 상태(스케쥴없음, OFF, 무급휴무, 유급휴무, 정상, 오류, 지각, 조퇴, 연장, 휴일근무)
+  status; // 9가지 상태(스케줄없음, OFF, 무급휴무, 유급휴무, 정상, 오류, 지각, 조퇴, 연장, 휴일근로)
 
   // 화면용 상태코드 ["NORMAL","LATE","EARLY","OVERTIME","HOLIDAY","ERROR","PAY","NOPAY","OFF","NOSCHEDULE"]
   final List<String>? statusCodes;
   // ["정상","지각","조퇴","연장",...]
   final List<String>? statusLabels;
 
-  // 근무모듈
+  // 근로모듈
   final String? workCat; // 소정근로, 휴일근로 등
   final String? workName; // 평일(의사), 연차 등
   final int? workColorCode;

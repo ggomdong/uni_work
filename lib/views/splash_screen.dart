@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../repos/authentication_repo.dart';
 import '../constants/constants.dart';
+import '../repos/authentication_repo.dart';
+import '../view_models/auth_state_view_model.dart';
 import '../router.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -31,6 +32,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     )..addStatusListener((status) async {
       if (status == AnimationStatus.completed) {
         await Future.delayed(const Duration(milliseconds: 800));
+
+        ref.read(authStateProvider.notifier).markSplashShown();
 
         final repo = ref.read(authRepo);
         final isLoggedIn = repo.isLoggedIn;

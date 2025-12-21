@@ -27,7 +27,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   // 상태에 따른 색상 세팅
   Color resolveStatusColor(BuildContext context, String? status) {
     switch (status) {
-      case "스케쥴없음":
+      case "스케줄없음":
         return Colors.grey.shade100;
       case "OFF":
       case "무급휴무":
@@ -43,7 +43,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         return Colors.purple.shade100;
       case "연장":
         return Colors.blue.shade100;
-      case "휴일근무":
+      case "휴일근로":
         return Colors.teal.shade200;
       default:
         return Colors.grey.shade100;
@@ -99,50 +99,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           return Column(
             children: [
               Gaps.v48,
-
-              // Row(
-              //   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              //   children: [
-              //     StatItem(
-              //       icon: Icons.check_circle,
-              //       title: "정상",
-              //       value: "${records.where((r) => r.status == '정상').length} 일",
-              //       color: Colors.green,
-              //     ),
-              //     StatItem(
-              //       icon: Icons.cancel,
-              //       title: "결근",
-              //       value: "${records.where((r) => r.status == '결근').length} 일",
-              //       color: Colors.redAccent,
-              //     ),
-              //     StatItem(
-              //       icon: Icons.timer_off,
-              //       title: "지각",
-              //       value: "${records.where((r) => r.status == '지각').length} 일",
-              //       color: Colors.orange,
-              //     ),
-              //     StatItem(
-              //       icon: Icons.logout,
-              //       title: "조퇴",
-              //       value: "${records.where((r) => r.status == '조퇴').length} 일",
-              //       color: Colors.purpleAccent,
-              //     ),
-              //     StatItem(
-              //       icon: Icons.alarm,
-              //       title: "연장",
-              //       value: "${records.where((r) => r.status == '연장').length} 일",
-              //       color: Colors.blue,
-              //     ),
-              //     StatItem(
-              //       icon: Icons.schedule,
-              //       title: "휴일",
-              //       value:
-              //           "${records.where((r) => r.status == '휴일근무').length} 일",
-              //       color: Colors.black,
-              //     ),
-              //   ],
-              // ),
-              // Gaps.v52,
               MonthDateSelector(
                 currentMonth: _focusedDay,
                 selectedDate: _selectedDay.value,
@@ -193,7 +149,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   valueListenable: _selectedAttendance,
                   builder: (context, records, _) {
                     if (records.isEmpty) {
-                      return const Center(child: Text("근무 스케쥴이 없습니다."));
+                      return const Center(child: Text("근로 스케줄이 없습니다."));
                     }
 
                     return ListView.builder(
@@ -260,13 +216,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                                     ),
                                     Gaps.h4,
                                     Text(
-                                      "근무: ${record.workCat ?? ''} (${record.workName ?? ''})",
+                                      "근로: ${record.workCat ?? ''} (${record.workName ?? ''})",
                                     ),
                                   ],
                                 ),
                                 Gaps.v4,
 
-                                // 근무시간
+                                // 근로시간
                                 Row(
                                   children: [
                                     const Icon(

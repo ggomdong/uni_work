@@ -9,9 +9,22 @@ import 'package:permission_handler/permission_handler.dart';
 import '../view_models/beacon_view_model.dart';
 import '../view_models/attendance_view_model.dart';
 import './widgets/common_app_bar.dart';
+import './widgets/error_view.dart';
 import './widgets/work_time_card.dart';
 import '../utils.dart';
 import '../constants/gaps.dart';
+
+class CheckDialogSnapshot {
+  final bool isCheckedIn;
+  final bool hasTime; // 근로일 여부(= 소정근로 시간 존재 여부)
+  final bool isEarlyCheckout;
+
+  const CheckDialogSnapshot({
+    required this.isCheckedIn,
+    required this.hasTime,
+    required this.isEarlyCheckout,
+  });
+}
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -28,7 +41,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   bool isCheckedIn = false; // 출근 여부
   bool isEarlyCheckout = true; // 조퇴 여부
-  bool hasTime = false; // 근무일 여부
+  bool hasTime = false; // 근로일 여부
 
   bool _canRefresh = true;
 
@@ -50,52 +63,93 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     });
   }
 
-  void _confirmCheckInOut() {
+  // “다이얼로그 띄우기 전 체크 + 최신화 + 스냅샷 생성” 함수
+  Future<CheckDialogSnapshot?> _prepareCheckDialogSnapshot() async {
+    // 1) 서버 최신화: 반드시 await
+    await ref.read(attendanceProvider.notifier).refresh();
+
+    // 2) 결과 확인 (refresh는 throw 안 하고 state에 error로 담김)
+    final state = ref.read(attendanceProvider);
+    if (state.isLoading) return null;
+
+    if (state.hasError || state.value == null) {
+      if (!mounted) return null;
+      // 사용자에게는 깔끔한 메시지
+      final msg = humanizeErrorMessage(state.error!);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      return null;
+    }
+
+    final data = state.value!;
+
+    // 3) 최신 데이터로 스냅샷 생성 (홈 화면의 state 변수(isCheckedIn 등) 쓰지 말 것)
+    final workStart = data.workStart; // AttendanceModel에 존재한다고 가정(현재 홈에서 쓰고 있음)
+    final workEnd = data.workEnd;
+
+    final hasTime =
+        workStart != null &&
+        workEnd != null &&
+        workStart.isNotEmpty &&
+        workEnd.isNotEmpty;
+
+    final isCheckedIn = data.checkinTime != null;
+
+    return CheckDialogSnapshot(
+      isCheckedIn: isCheckedIn,
+      hasTime: hasTime,
+      isEarlyCheckout: data.isEarlyCheckout,
+    );
+  }
+
+  void _confirmCheckInOut(CheckDialogSnapshot snap) {
     showCupertinoDialog(
       context: context,
       builder: (context) {
         DateTime displayTime = DateTime.now();
-        late Timer timer;
+        Timer? timer;
+        var timerStarted = false;
 
         Widget getDialogContent() {
-          if (!isCheckedIn && !hasTime) {
+          // 스냅샷만 사용: 다이얼로그 떠있는 동안 값이 바뀌어도 문구 고정됨
+          if (!snap.isCheckedIn && !snap.hasTime) {
             return RichText(
               textAlign: TextAlign.center,
-              text: TextSpan(
+              text: const TextSpan(
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.black87,
-                  height: 1, // 줄 간격 조절 (선택)
+                  height: 1,
                 ),
                 children: [
                   TextSpan(
-                    text: "근무일이 아닙니다!\n\n", // 줄바꿈 2번 = 한 줄 띄움
+                    text: "근로일이 아닙니다!\n\n",
                     style: TextStyle(color: Colors.red),
                   ),
                   TextSpan(text: "그래도 출근 하시겠습니까?"),
                 ],
               ),
             );
-          } else {
-            return Text(
-              !isCheckedIn
-                  ? "출근 하시겠습니까?"
-                  : isEarlyCheckout
-                  ? "조퇴 하시겠습니까?"
-                  : "연장근무 후 퇴근하시겠습니까?",
-            );
           }
+
+          return Text(
+            !snap.isCheckedIn
+                ? "출근 하시겠습니까?"
+                : snap.isEarlyCheckout
+                ? "조퇴 하시겠습니까?"
+                : "연장근로 후 퇴근하시겠습니까?",
+          );
         }
 
         return StatefulBuilder(
           builder: (context, setState) {
-            timer = Timer.periodic(const Duration(seconds: 1), (_) {
-              if (context.mounted) {
-                setState(() {
-                  displayTime = DateTime.now();
-                });
-              }
-            });
+            // timer가 builder마다 다시 생성되지 않도록 방어(현재 코드의 잠재 버그도 같이 제거)
+            if (!timerStarted) {
+              timerStarted = true;
+              timer = Timer.periodic(const Duration(seconds: 1), (_) {
+                if (!context.mounted) return;
+                setState(() => displayTime = DateTime.now());
+              });
+            }
 
             return CupertinoAlertDialog(
               title: Text(DateFormat('HH:mm:ss').format(displayTime)),
@@ -107,16 +161,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 CupertinoDialogAction(
                   child: const Text("취소"),
                   onPressed: () {
-                    timer.cancel();
+                    timer?.cancel();
                     Navigator.of(context).pop();
                   },
                 ),
                 CupertinoDialogAction(
                   child: const Text("확인"),
-                  onPressed: () {
-                    timer.cancel();
+                  onPressed: () async {
+                    timer?.cancel();
                     Navigator.of(context).pop();
-                    ref.read(attendanceProvider.notifier).submitWork();
+
+                    await ref.read(attendanceProvider.notifier).submitWork();
+
+                    final st = ref.read(attendanceProvider);
+                    if (st.hasError && mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(humanizeErrorMessage(st.error!)),
+                        ),
+                      );
+                    }
                   },
                 ),
               ],
@@ -159,7 +223,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final beaconError = ref.watch(beaconErrorProvider);
 
     // 서버에서 내려온 "비콘 우회 권한" 여부 (없으면 false)
-    final canBypassBeacon = attendance.value?.canBypassBeacon ?? false;
+    final canBypassBeacon = attendance.valueOrNull?.canBypassBeacon ?? false;
 
     // 실제 비콘이 잡히거나, 우회 권한이 있으면 true
     final effectiveBeacon = beaconDetected || canBypassBeacon;
@@ -171,111 +235,117 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       _airflowController.stop();
     }
 
-    return attendance.when(
-      data: (data) {
-        final today = DateTime.now();
-        // final today = DateTime.parse('2025-12-05');
+    return Scaffold(
+      appBar: CommonAppBar(
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Icon(
+              effectiveBeacon
+                  ? Icons.bluetooth_connected
+                  : Icons.bluetooth_disabled,
+              color: effectiveBeacon ? Colors.green : Colors.grey,
+            ),
+          ),
+          IconButton(
+            tooltip: "새로고침",
+            onPressed: _onRefreshTap,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: attendance.when(
+        data: (data) {
+          final today = DateTime.now();
+          // final today = DateTime.parse('2025-12-05');
 
-        final workStart = data.workStart; // "HH:mm" 또는 null
-        final workEnd = data.workEnd; // "HH:mm" 또는 null
-        final moduleCat =
-            data.moduleCat; // ex) "소정근로", "휴일근로", "유급휴무", "무급휴무", "OFF"
-        final moduleName =
-            data.moduleName; // ex) "연차", "경조휴가", "공가", "결근", "병가", "무급휴가" 등
+          final workStart = data.workStart; // "HH:mm" 또는 null
+          final workEnd = data.workEnd; // "HH:mm" 또는 null
+          final moduleCat =
+              data.moduleCat; // ex) "소정근로", "휴일근로", "유급휴무", "무급휴무", "OFF"
+          final moduleName =
+              data.moduleName; // ex) "연차", "경조휴가", "공가", "결근", "병가", "무급휴가" 등
 
-        // 1) 근무일인지 판단
-        String schedule;
-        hasTime =
-            workStart != null &&
-            workEnd != null &&
-            workStart.isNotEmpty &&
-            workEnd.isNotEmpty;
+          // 1) 근로일인지 판단
+          String schedule;
+          hasTime =
+              workStart != null &&
+              workEnd != null &&
+              workStart.isNotEmpty &&
+              workEnd.isNotEmpty;
 
-        if (hasTime) {
-          // 예: "정규근무 09:00 ~ 18:00"
-          if (moduleCat != null && moduleCat.isNotEmpty) {
-            schedule = "$moduleCat($workStart ~ $workEnd)";
-          } else {
-            // cat이 혹시 없으면 기존 형식으로 fallback
-            schedule = "$workStart ~ $workEnd";
-          }
-        } else {
-          // 2) 시간이 없는 날: cat + name
-          if (moduleCat != null && moduleCat.isNotEmpty) {
-            if (moduleCat == 'OFF') {
-              schedule = moduleCat;
-            } else if (moduleName != null && moduleName.isNotEmpty) {
-              // 예: "유급휴무 (연차)", "무급휴무 (병가)"
-              schedule = "$moduleCat($moduleName)";
+          if (hasTime) {
+            // 예: "소정근로 09:00 ~ 18:00"
+            if (moduleCat != null && moduleCat.isNotEmpty) {
+              schedule = "$moduleCat($workStart ~ $workEnd)";
             } else {
-              // 이름이 없으면 cat만
-              schedule = moduleCat;
+              // cat이 혹시 없으면 기존 형식으로 fallback
+              schedule = "$workStart ~ $workEnd";
             }
           } else {
-            // 3) 모듈 자체가 없는 완전한 무스케줄: 기존 메시지 유지
-            schedule = "(근무 스케쥴 없음)";
+            // 2) 시간이 없는 날: cat + name
+            if (moduleCat != null && moduleCat.isNotEmpty) {
+              if (moduleCat == 'OFF') {
+                schedule = moduleCat;
+              } else if (moduleName != null && moduleName.isNotEmpty) {
+                // 예: "유급휴무 (연차)", "무급휴무 (병가)"
+                schedule = "$moduleCat($moduleName)";
+              } else {
+                // 이름이 없으면 cat만
+                schedule = moduleCat;
+              }
+            } else {
+              // 3) 모듈 자체가 없는 완전한 무스케줄: 기존 메시지 유지
+              schedule = "(근로 스케줄 없음)";
+            }
           }
-        }
 
-        final empName = data.empName;
-        final checkinTime = data.checkinTime;
-        final checkoutTime = data.checkoutTime;
+          final empName = data.empName;
+          final checkinTime = data.checkinTime;
+          final checkoutTime = data.checkoutTime;
 
-        isCheckedIn = data.checkinTime != null;
-        isEarlyCheckout = data.isEarlyCheckout;
+          isCheckedIn = data.checkinTime != null;
+          isEarlyCheckout = data.isEarlyCheckout;
 
-        final content = contentBody(
-          primaryColor,
-          today,
-          schedule,
-          empName,
-          notice,
-          isEarlyCheckout,
-          checkinTime,
-          checkoutTime,
-          effectiveBeacon,
-          beacons,
-          beaconError,
-        );
+          final content = contentBody(
+            primaryColor,
+            today,
+            schedule,
+            empName,
+            notice,
+            isEarlyCheckout,
+            checkinTime,
+            checkoutTime,
+            effectiveBeacon,
+            beacons,
+            beaconError,
+          );
 
-        return Scaffold(
-          appBar: CommonAppBar(
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: Icon(
-                  effectiveBeacon
-                      ? Icons.bluetooth_connected
-                      : Icons.bluetooth_disabled,
-                  color: effectiveBeacon ? Colors.green : Colors.grey,
-                ),
-              ),
-              IconButton(
-                tooltip: "새로고침",
-                onPressed: _onRefreshTap,
-                icon: const Icon(Icons.refresh),
-              ),
-            ],
-          ),
-          body:
-              effectiveBeacon
-                  ? AnimatedBuilder(
-                    animation: _airflowController,
-                    builder: (context, child) {
-                      return CustomPaint(
-                        painter: AirflowBackgroundPainter(
-                          animation: _airflowController,
-                        ),
-                        child: child,
-                      );
-                    },
-                    child: content,
-                  )
-                  : content,
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, st) => Center(child: Text("오류 발생: $e")),
+          return effectiveBeacon
+              ? AnimatedBuilder(
+                animation: _airflowController,
+                builder: (context, child) {
+                  return CustomPaint(
+                    painter: AirflowBackgroundPainter(
+                      animation: _airflowController,
+                    ),
+                    child: child,
+                  );
+                },
+                child: content,
+              )
+              : content;
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error:
+            (e, st) => ErrorView(
+              title: '홈 화면을 불러오지 못했습니다',
+              icon: Icons.cloud_off,
+              error: e,
+              stackTrace: st,
+              onRetry: _onRefreshTap, // 지금 쓰는 5초 쿨타임 로직 그대로 재사용
+            ),
+      ),
     );
   }
 
@@ -357,134 +427,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ],
               ),
             ),
-
-            // 감지된 비콘 디버그 패널 (UUID/major/minor/거리)
-            // if (beacons.isNotEmpty)
-            //   Container(
-            //     margin: const EdgeInsets.only(top: 12),
-            //     padding: const EdgeInsets.all(12),
-            //     decoration: BoxDecoration(
-            //       color: Colors.white,
-            //       borderRadius: BorderRadius.circular(12),
-            //       boxShadow: const [
-            //         BoxShadow(
-            //           color: Colors.black12,
-            //           blurRadius: 6,
-            //           offset: Offset(0, 3),
-            //         ),
-            //       ],
-            //     ),
-            //     child: Column(
-            //       crossAxisAlignment: CrossAxisAlignment.start,
-            //       children: [
-            //         Text(
-            //           "감지된 비콘 (${beacons.length})",
-            //           style: const TextStyle(
-            //             fontSize: 13,
-            //             fontWeight: FontWeight.w700,
-            //           ),
-            //         ),
-            //         const SizedBox(height: 8),
-            //         // 높이가 너무 커지지 않게 제한
-            //         ConstrainedBox(
-            //           constraints: const BoxConstraints(maxHeight: 160),
-            //           child: ListView.separated(
-            //             shrinkWrap: true,
-            //             itemCount: beacons.length,
-            //             separatorBuilder: (_, __) => const SizedBox(height: 6),
-            //             itemBuilder: (_, i) {
-            //               final b = beacons[i];
-            //               final uuid = b.proximityUUID ?? "-";
-            //               final major = b.major?.toString() ?? "-";
-            //               final minor = b.minor?.toString() ?? "-";
-            //               final rssi = b.rssi?.toString() ?? "-";
-            //               final acc = _formatMeters(b.accuracy);
-
-            //               return Container(
-            //                 padding: const EdgeInsets.symmetric(
-            //                   horizontal: 10,
-            //                   vertical: 8,
-            //                 ),
-            //                 decoration: BoxDecoration(
-            //                   color: const Color(0xFFF7F9FA),
-            //                   borderRadius: BorderRadius.circular(10),
-            //                   border: Border.all(
-            //                     color: const Color(0xFFE6EAED),
-            //                   ),
-            //                 ),
-            //                 child: Row(
-            //                   children: [
-            //                     // 좌측: UUID 요약 (길면 축약 표시)
-            //                     Expanded(
-            //                       child: Column(
-            //                         crossAxisAlignment:
-            //                             CrossAxisAlignment.start,
-            //                         children: [
-            //                           SelectableText(
-            //                             uuid, // 전체 복사도 가능하게
-            //                             style: const TextStyle(
-            //                               fontSize: 12,
-            //                               fontWeight: FontWeight.w600,
-            //                             ),
-            //                           ),
-            //                           const SizedBox(height: 2),
-            //                           Text(
-            //                             "Major/Minor  $major / $minor",
-            //                             style: const TextStyle(
-            //                               fontSize: 11,
-            //                               color: Colors.black54,
-            //                             ),
-            //                           ),
-            //                         ],
-            //                       ),
-            //                     ),
-            //                     const SizedBox(width: 8),
-            //                     // 우측: 거리/RSSI
-            //                     Column(
-            //                       crossAxisAlignment: CrossAxisAlignment.end,
-            //                       children: [
-            //                         Text(
-            //                           "거리 $acc",
-            //                           style: const TextStyle(fontSize: 11),
-            //                         ),
-            //                         Text(
-            //                           "RSSI $rssi dBm",
-            //                           style: const TextStyle(
-            //                             fontSize: 11,
-            //                             color: Colors.black54,
-            //                           ),
-            //                         ),
-            //                       ],
-            //                     ),
-            //                     const SizedBox(width: 6),
-            //                     // 복사 버튼 (UUID 복사)
-            //                     IconButton(
-            //                       icon: const Icon(Icons.copy, size: 18),
-            //                       onPressed: () async {
-            //                         await Clipboard.setData(
-            //                           ClipboardData(text: uuid),
-            //                         );
-            //                         if (context.mounted) {
-            //                           ScaffoldMessenger.of(
-            //                             context,
-            //                           ).showSnackBar(
-            //                             const SnackBar(
-            //                               content: Text("UUID 복사됨"),
-            //                             ),
-            //                           );
-            //                         }
-            //                       },
-            //                       tooltip: "UUID 복사",
-            //                     ),
-            //                   ],
-            //                 ),
-            //               );
-            //             },
-            //           ),
-            //         ),
-            //       ],
-            //     ),
-            //   ),
             Gaps.v12,
             if (beaconError != null) ...[
               Container(
@@ -556,7 +498,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: Center(
                 child:
                     (!hasTime && isCheckedIn)
-                        // 1) 근무일 아님 + 출근 상태 → 메시지 카드
+                        // 1) 근로일 아님 + 출근 상태 → 메시지 카드
                         ? ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 320),
                           child: Container(
@@ -659,10 +601,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             GestureDetector(
                               onTapUp:
                                   effectiveBeacon
-                                      ? (_) {
+                                      ? (_) async {
                                         triggerHaptic(context);
-                                        _refresh();
-                                        _confirmCheckInOut();
+
+                                        final snap =
+                                            await _prepareCheckDialogSnapshot();
+                                        if (!mounted || snap == null) return;
+
+                                        _confirmCheckInOut(snap);
                                       }
                                       : null,
                               child: Opacity(
@@ -700,7 +646,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                                           isCheckedIn
                                               ? isEarlyCheckout
                                                   ? "조퇴하기"
-                                                  : "연장근무 후 퇴근"
+                                                  : "연장근로 후 퇴근"
                                               : "출근하기",
                                           style: TextStyle(
                                             fontSize: 14,
