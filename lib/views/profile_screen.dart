@@ -281,42 +281,6 @@ class _Loading extends StatelessWidget {
   }
 }
 
-class _Error extends StatelessWidget {
-  final VoidCallback onRetry;
-  final String? message;
-  const _Error({required this.onRetry, this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 40),
-            Gaps.v12,
-            Text(
-              '프로필 정보를 불러오지 못했습니다.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            if (message != null) ...[
-              Gaps.v6,
-              Text(message!, style: Theme.of(context).textTheme.labelSmall),
-            ],
-            Gaps.v12,
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('다시 시도'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _Empty extends StatelessWidget {
   final VoidCallback onRetry;
   const _Empty({required this.onRetry});
