@@ -71,7 +71,11 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen>
     } else {
       _selectedIndex = 0;
     }
-    _syncBeacon(); // 중요: URL로 들어왔을 때도 스캔 상태 동기화
+    // 빌드 중 provider 변경 방지: 프레임 끝난 뒤 동기화
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _syncBeacon(); // 중요: URL로 들어왔을 때도 스캔 상태 동기화
+    });
   }
 
   void _onTap(int index) {

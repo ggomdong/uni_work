@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:android_id/android_id.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -174,8 +175,10 @@ class AuthenticationRepository {
     final deviceInfo = DeviceInfoPlugin();
 
     if (Platform.isAndroid) {
-      final androidInfo = await deviceInfo.androidInfo;
-      return androidInfo.id;
+      // device_info_plus removed androidId. Use android_id package instead.
+      const androidIdPlugin = AndroidId();
+      final androidId = await androidIdPlugin.getId();
+      return (androidId == null || androidId.isEmpty) ? 'unknown' : androidId;
     } else if (Platform.isIOS) {
       final iosInfo = await deviceInfo.iosInfo;
       return iosInfo.identifierForVendor ?? 'unknown';

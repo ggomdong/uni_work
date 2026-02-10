@@ -34,21 +34,19 @@ class WorkTimeCard extends StatelessWidget {
           ],
         ),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: IntrinsicHeight(
-          child: Row(
-            children: [
-              // 출근
-              Expanded(child: _buildTimeBlock("출근시각", checkinTime)),
-              // 구분선
-              Container(
-                width: 1,
-                color: Colors.grey[300],
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-              ),
-              // 퇴근
-              Expanded(child: _buildTimeBlock("퇴근시각", checkoutTime)),
-            ],
-          ),
+        child: Row(
+          children: [
+            // 출근
+            Expanded(child: _buildTimeBlock("출근시각", checkinTime)),
+            // 구분선
+            Container(
+              width: 1,
+              color: Colors.grey[300],
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+            ),
+            // 퇴근
+            Expanded(child: _buildTimeBlock("퇴근시각", checkoutTime)),
+          ],
         ),
       ),
     );
