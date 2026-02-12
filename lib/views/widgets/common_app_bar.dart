@@ -23,7 +23,7 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
             children: [
               Image.asset(logo, width: 133, height: 50),
               Text(
-                "근태관리",
+                "Medi HR",
                 style: TextStyle(
                   color: Colors.grey.shade700,
                   fontSize: 18,
