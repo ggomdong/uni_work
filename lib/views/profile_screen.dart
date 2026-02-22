@@ -182,19 +182,29 @@ class _HeaderCard extends StatelessWidget {
           ),
           Gaps.h16,
           Expanded(
-            child: Wrap(
-              runSpacing: 6,
-              spacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  profile.empName,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                Wrap(
+                  runSpacing: 6,
+                  spacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      profile.empName,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    _Chip(text: profile.dept),
+                    _Chip(text: profile.position),
+                  ],
                 ),
-                _Chip(text: profile.dept),
-                _Chip(text: profile.position),
+                Gaps.v4,
+                const Text(
+                  '지점: (미설정)', // TODO: profile 모델에 지점명 필드 추가 시 치환
+                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                ),
               ],
             ),
           ),
