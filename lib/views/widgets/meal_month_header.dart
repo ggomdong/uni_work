@@ -40,8 +40,9 @@ class MealMonthHeader extends StatelessWidget {
               children: [
                 Text(
                   display,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 Gaps.h6,

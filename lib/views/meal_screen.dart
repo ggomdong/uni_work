@@ -20,7 +20,6 @@ class MealScreen extends StatefulWidget {
 class _MealScreenState extends State<MealScreen> {
   String _yearMonth = '202602';
   late List<MealClaimItem> _items;
-  late MealSummary _summary;
   int _refreshTick = 0;
   int _selectedIndex = 0;
   bool _sortDesc = true;
@@ -33,7 +32,6 @@ class _MealScreenState extends State<MealScreen> {
 
   void _loadDummyData() {
     _items = _buildDummyItems();
-    _summary = _buildSummary();
   }
 
   List<MealClaimItem> get _myClaims {
@@ -49,31 +47,12 @@ class _MealScreenState extends State<MealScreen> {
     return filtered;
   }
 
-  MealSummary _buildSummary() {
-    const totalAmount = 300000;
-    final usedAmount = _items.fold<int>(0, (sum, e) => sum + e.myAmount);
-    return MealSummary(
-      ym: _yearMonth,
-      totalAmount: totalAmount,
-      usedAmount: usedAmount,
-      balance: totalAmount - usedAmount,
-      claimCount: _items.length,
-    );
-  }
-
-  void _refreshSummary() {
-    setState(() {
-      _summary = _buildSummary();
-    });
-  }
-
   void _changeMonth(int diff) {
     final year = int.parse(_yearMonth.substring(0, 4));
     final month = int.parse(_yearMonth.substring(4, 6));
     final next = DateTime(year, month + diff, 1);
     setState(() {
       _yearMonth = DateFormat('yyyyMM').format(next);
-      _summary = _buildSummary();
     });
   }
 
@@ -118,7 +97,6 @@ class _MealScreenState extends State<MealScreen> {
         setState(() {
           _items.removeWhere((e) => e.id == deleted.id);
         });
-        _refreshSummary();
       },
       onSaved: (saved) {
         if (saved.id == 0) {
@@ -138,7 +116,6 @@ class _MealScreenState extends State<MealScreen> {
             }
           });
         }
-        _refreshSummary();
       },
     );
   }
@@ -190,7 +167,6 @@ class _MealScreenState extends State<MealScreen> {
                     onSelect: (ym) {
                       setState(() {
                         _yearMonth = ym;
-                        _summary = _buildSummary();
                       });
                       Navigator.of(popupContext, rootNavigator: true).pop();
                     },
@@ -219,7 +195,6 @@ class _MealScreenState extends State<MealScreen> {
             onSelect: (ym) {
               setState(() {
                 _yearMonth = ym;
-                _summary = _buildSummary();
               });
               Navigator.of(context).pop();
             },
@@ -269,7 +244,7 @@ class _MealScreenState extends State<MealScreen> {
                   ),
                   const Divider(height: Sizes.size16),
                   MealSummaryCard(
-                    summary: _summary,
+                    ym: _yearMonth,
                     onUsedTap: _switchToUseTab,
                   ),
                 ],
