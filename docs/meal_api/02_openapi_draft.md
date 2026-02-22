@@ -128,7 +128,7 @@ paths:
                         total_amount: { type: integer }
                         my_amount: { type: integer }
                         participants_count: { type: integer }
-                        participant_sum: { type: integer }
+                        participants_sum: { type: integer }
                         created_by:
                           type: object
                           properties:
@@ -136,6 +136,48 @@ paths:
                             emp_name: { type: string }
                         can_edit: { type: boolean }
                         can_delete: { type: boolean }
+
+  /meals/my/created/:
+    get:
+      parameters:
+        - in: query
+          name: ym
+          schema: { type: string }
+          description: YYYYMM or YYYY-MM (optional, default=current month)
+      responses:
+        '200':
+          description: OK (created_by 기준 목록; item schema is same as /meals/my/items/)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ym: { type: string }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        used_date: { type: string, format: date }
+                        merchant_name: { type: string }
+                        approval_no: { type: string }
+                        total_amount: { type: integer }
+                        my_amount:
+                          type: integer
+                          description: 작성자가 참여자가 아니면 0
+                        participants_count: { type: integer }
+                        participants_sum: { type: integer }
+                        created_by:
+                          type: object
+                          properties:
+                            id: { type: integer }
+                            emp_name: { type: string }
+                        can_edit: { type: boolean }
+                        can_delete: { type: boolean }
+        '400': { description: validation/branch error }
+        '401': { description: unauthenticated }
+        '403': { description: out_user }
 
   /meals/options/:
     get:
@@ -185,6 +227,7 @@ paths:
         required: true
         schema: { type: integer }
     get:
+      description: 참여자 또는 작성자만 조회 가능 (둘 다 아니면 404)
       responses:
         '200':
           description: OK
@@ -227,7 +270,8 @@ paths:
 ## 참조(코드 위치)
 - `mysite/api/v1/urls.py:34`
 - `mysite/api/v1/views/meals.py:23`
-- `mysite/api/v1/views/meals.py:178`
+- `mysite/api/v1/views/meals.py:122`
+- `mysite/api/v1/views/meals.py:232`
 - `mysite/wtm/services/meal_claims.py:165`
 - `mysite/wtm/services/meal_claims.py:314`
 - `mysite/api/v1/views/common.py:13`

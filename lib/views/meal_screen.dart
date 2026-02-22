@@ -1,25 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../constants/gaps.dart';
 import '../constants/sizes.dart';
+import '../utils.dart';
 import './widgets/common_app_bar.dart';
 import './widgets/meal_month_header.dart';
 import './widgets/meal_summary_card.dart';
 import './widgets/meal_my_claim_list.dart';
 import './widgets/meal_claim_sheet.dart';
 import './widgets/meal_types.dart';
+import '../view_models/meal_items_view_model.dart';
 
-class MealScreen extends StatefulWidget {
+class MealScreen extends ConsumerStatefulWidget {
   const MealScreen({super.key});
 
   @override
-  State<MealScreen> createState() => _MealScreenState();
+  ConsumerState<MealScreen> createState() => _MealScreenState();
 }
 
-class _MealScreenState extends State<MealScreen> {
-  String _yearMonth = '202602';
-  late List<MealClaimItem> _items;
+class _MealScreenState extends ConsumerState<MealScreen> {
+  late String _yearMonth;
   int _refreshTick = 0;
   int _selectedIndex = 0;
   bool _sortDesc = true;
@@ -27,15 +29,11 @@ class _MealScreenState extends State<MealScreen> {
   @override
   void initState() {
     super.initState();
-    _loadDummyData();
+    _yearMonth = DateFormat('yyyyMM').format(DateTime.now());
   }
 
-  void _loadDummyData() {
-    _items = _buildDummyItems();
-  }
-
-  List<MealClaimItem> get _myClaims {
-    final filtered = _items.where((e) => e.createdByName == '나').toList();
+  List<MealClaimItem> _myClaims(List<MealClaimItem> items) {
+    final filtered = items.toList();
     filtered.sort((a, b) {
       final date =
           _sortDesc
@@ -56,8 +54,8 @@ class _MealScreenState extends State<MealScreen> {
     });
   }
 
-  List<MealClaimItem> get _useClaims {
-    final sorted = [..._items];
+  List<MealClaimItem> _useClaims(List<MealClaimItem> items) {
+    final sorted = [...items];
     sorted.sort((a, b) {
       final date =
           _sortDesc
@@ -76,9 +74,14 @@ class _MealScreenState extends State<MealScreen> {
   }
 
   void _onRefresh() {
+    final query = MealItemsQuery(
+      ym: _yearMonth,
+      type:
+          _selectedIndex == 0 ? MealItemsType.created : MealItemsType.used,
+    );
+    ref.read(mealItemsProvider(query).notifier).refresh();
     setState(() {
       _refreshTick++;
-      _loadDummyData();
     });
     ScaffoldMessenger.of(
       context,
@@ -94,28 +97,20 @@ class _MealScreenState extends State<MealScreen> {
       mode: mode,
       initial: item,
       onDeleted: (deleted) {
-        setState(() {
-          _items.removeWhere((e) => e.id == deleted.id);
-        });
+        final query = MealItemsQuery(
+          ym: _yearMonth,
+          type:
+              _selectedIndex == 0 ? MealItemsType.created : MealItemsType.used,
+        );
+        ref.read(mealItemsProvider(query).notifier).refresh();
       },
       onSaved: (saved) {
-        if (saved.id == 0) {
-          final nextId =
-              _items.isEmpty
-                  ? 1
-                  : _items.map((e) => e.id).reduce((a, b) => a > b ? a : b) + 1;
-          final inserted = saved.copyWith(id: nextId);
-          setState(() {
-            _items.insert(0, inserted);
-          });
-        } else {
-          setState(() {
-            final index = _items.indexWhere((e) => e.id == saved.id);
-            if (index != -1) {
-              _items[index] = saved;
-            }
-          });
-        }
+        final query = MealItemsQuery(
+          ym: _yearMonth,
+          type:
+              _selectedIndex == 0 ? MealItemsType.created : MealItemsType.used,
+        );
+        ref.read(mealItemsProvider(query).notifier).refresh();
       },
     );
   }
@@ -170,8 +165,12 @@ class _MealScreenState extends State<MealScreen> {
                       });
                       Navigator.of(popupContext, rootNavigator: true).pop();
                     },
-                    onClose: () =>
-                        Navigator.of(popupContext, rootNavigator: true).pop(),
+                    onClose:
+                        () =>
+                            Navigator.of(
+                              popupContext,
+                              rootNavigator: true,
+                            ).pop(),
                   ),
                 ),
               ),
@@ -207,6 +206,13 @@ class _MealScreenState extends State<MealScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final query = MealItemsQuery(
+      ym: _yearMonth,
+      type:
+          _selectedIndex == 0 ? MealItemsType.created : MealItemsType.used,
+    );
+    final itemsAsync = ref.watch(mealItemsProvider(query));
+
     return Scaffold(
       appBar: CommonAppBar(
         actions: [
@@ -243,10 +249,7 @@ class _MealScreenState extends State<MealScreen> {
                     onPick: _onPickMonth,
                   ),
                   const Divider(height: Sizes.size16),
-                  MealSummaryCard(
-                    ym: _yearMonth,
-                    onUsedTap: _switchToUseTab,
-                  ),
+                  MealSummaryCard(ym: _yearMonth, onUsedTap: _switchToUseTab),
                 ],
               ),
             ),
@@ -293,9 +296,30 @@ class _MealScreenState extends State<MealScreen> {
               ],
             ),
             Gaps.v20,
-            MealMyClaimList(
-              items: _selectedIndex == 0 ? _myClaims : _useClaims,
-              onItemTap: (item) => _openClaimSheet(item: item),
+            itemsAsync.when(
+              data: (items) {
+                final list =
+                    _selectedIndex == 0 ? _myClaims(items) : _useClaims(items);
+                return MealMyClaimList(
+                  items: list,
+                  onItemTap: (item) => _openClaimSheet(item: item),
+                );
+              },
+              loading:
+                  () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: Sizes.size20),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+              error:
+                  (error, stack) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: Sizes.size12),
+                    child: Text(
+                      '${humanizeErrorMessage(error)}\n${error.toString()}',
+                      style: const TextStyle(color: Colors.redAccent),
+                    ),
+                  ),
             ),
             Gaps.v20,
           ],
@@ -406,10 +430,7 @@ class _SheetShell extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                IconButton(
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close),
-                ),
+                IconButton(onPressed: onClose, icon: const Icon(Icons.close)),
               ],
             ),
           ),
@@ -420,207 +441,4 @@ class _SheetShell extends StatelessWidget {
       ),
     );
   }
-}
-
-List<MealClaimItem> _buildDummyItems() {
-  return [
-    MealClaimItem(
-      id: 120,
-      ym: '202602',
-      usedDate: DateTime(2026, 2, 1),
-      merchantName: '담소식당',
-      approvalNo: '10293847',
-      totalAmount: 56000,
-      myAmount: 28000,
-      createdByName: '나',
-      canEdit: true,
-      canDelete: true,
-      participants: const [
-        MealParticipant(name: '나', amount: 28000),
-        MealParticipant(name: '김영희', amount: 28000),
-      ],
-    ),
-    MealClaimItem(
-      id: 119,
-      ym: '202602',
-      usedDate: DateTime(2026, 2, 2),
-      merchantName: '분식공간',
-      approvalNo: '48392015',
-      totalAmount: 32000,
-      myAmount: 16000,
-      createdByName: '박지민',
-      canEdit: false,
-      canDelete: false,
-      participants: const [
-        MealParticipant(name: '나', amount: 16000),
-        MealParticipant(name: '박지민', amount: 16000),
-      ],
-    ),
-    MealClaimItem(
-      id: 118,
-      ym: '202602',
-      usedDate: DateTime(2026, 2, 3),
-      merchantName: '현대백반',
-      approvalNo: '73019284',
-      totalAmount: 45000,
-      myAmount: 15000,
-      createdByName: '나',
-      canEdit: true,
-      canDelete: true,
-      participants: const [
-        MealParticipant(name: '나', amount: 15000),
-        MealParticipant(name: '이수진', amount: 15000),
-        MealParticipant(name: '오민석', amount: 15000),
-      ],
-    ),
-    MealClaimItem(
-      id: 117,
-      ym: '202602',
-      usedDate: DateTime(2026, 2, 4),
-      merchantName: '서촌국수',
-      approvalNo: '39582714',
-      totalAmount: 27000,
-      myAmount: 9000,
-      createdByName: '오민석',
-      canEdit: false,
-      canDelete: false,
-      participants: const [
-        MealParticipant(name: '나', amount: 9000),
-        MealParticipant(name: '오민석', amount: 9000),
-        MealParticipant(name: '한지우', amount: 9000),
-      ],
-    ),
-    MealClaimItem(
-      id: 116,
-      ym: '202602',
-      usedDate: DateTime(2026, 2, 5),
-      merchantName: '라운지카페',
-      approvalNo: '56018392',
-      totalAmount: 18000,
-      myAmount: 18000,
-      createdByName: '나',
-      canEdit: true,
-      canDelete: true,
-      participants: const [MealParticipant(name: '나', amount: 18000)],
-    ),
-    MealClaimItem(
-      id: 115,
-      ym: '202602',
-      usedDate: DateTime(2026, 2, 7),
-      merchantName: '국밥집',
-      approvalNo: '28491037',
-      totalAmount: 36000,
-      myAmount: 12000,
-      createdByName: '김영희',
-      canEdit: false,
-      canDelete: false,
-      participants: const [
-        MealParticipant(name: '나', amount: 12000),
-        MealParticipant(name: '김영희', amount: 12000),
-        MealParticipant(name: '정현우', amount: 12000),
-      ],
-    ),
-    MealClaimItem(
-      id: 114,
-      ym: '202602',
-      usedDate: DateTime(2026, 2, 9),
-      merchantName: '파스타룸',
-      approvalNo: '40291857',
-      totalAmount: 78000,
-      myAmount: 26000,
-      createdByName: '나',
-      canEdit: true,
-      canDelete: false,
-      participants: const [
-        MealParticipant(name: '나', amount: 26000),
-        MealParticipant(name: '박지민', amount: 26000),
-        MealParticipant(name: '한지우', amount: 26000),
-      ],
-    ),
-    MealClaimItem(
-      id: 113,
-      ym: '202602',
-      usedDate: DateTime(2026, 2, 10),
-      merchantName: '도시락박스',
-      approvalNo: '82019453',
-      totalAmount: 24000,
-      myAmount: 12000,
-      createdByName: '한지우',
-      canEdit: false,
-      canDelete: false,
-      participants: const [
-        MealParticipant(name: '나', amount: 12000),
-        MealParticipant(name: '한지우', amount: 12000),
-      ],
-    ),
-    MealClaimItem(
-      id: 112,
-      ym: '202602',
-      usedDate: DateTime(2026, 2, 12),
-      merchantName: '가든샐러드',
-      approvalNo: '50291736',
-      totalAmount: 33000,
-      myAmount: 11000,
-      createdByName: '나',
-      canEdit: true,
-      canDelete: true,
-      participants: const [
-        MealParticipant(name: '나', amount: 11000),
-        MealParticipant(name: '정현우', amount: 11000),
-        MealParticipant(name: '이수진', amount: 11000),
-      ],
-    ),
-    MealClaimItem(
-      id: 111,
-      ym: '202602',
-      usedDate: DateTime(2026, 2, 13),
-      merchantName: '스시하우스',
-      approvalNo: '12930458',
-      totalAmount: 92000,
-      myAmount: 23000,
-      createdByName: '정현우',
-      canEdit: false,
-      canDelete: false,
-      participants: const [
-        MealParticipant(name: '나', amount: 23000),
-        MealParticipant(name: '정현우', amount: 23000),
-        MealParticipant(name: '김영희', amount: 23000),
-        MealParticipant(name: '오민석', amount: 23000),
-      ],
-    ),
-    MealClaimItem(
-      id: 110,
-      ym: '202602',
-      usedDate: DateTime(2026, 2, 14),
-      merchantName: '브런치테이블',
-      approvalNo: '64190283',
-      totalAmount: 52000,
-      myAmount: 26000,
-      createdByName: '나',
-      canEdit: true,
-      canDelete: true,
-      participants: const [
-        MealParticipant(name: '나', amount: 26000),
-        MealParticipant(name: '박지민', amount: 26000),
-      ],
-    ),
-    MealClaimItem(
-      id: 109,
-      ym: '202602',
-      usedDate: DateTime(2026, 2, 15),
-      merchantName: '고기한상',
-      approvalNo: '75820391',
-      totalAmount: 84000,
-      myAmount: 21000,
-      createdByName: '이수진',
-      canEdit: false,
-      canDelete: false,
-      participants: const [
-        MealParticipant(name: '나', amount: 21000),
-        MealParticipant(name: '이수진', amount: 21000),
-        MealParticipant(name: '정현우', amount: 21000),
-        MealParticipant(name: '김영희', amount: 21000),
-      ],
-    ),
-  ];
 }

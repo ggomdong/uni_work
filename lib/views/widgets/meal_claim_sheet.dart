@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../constants/gaps.dart';
 import '../../constants/sizes.dart';
+import '../../repos/meal_repo.dart';
+import '../../utils.dart';
 import './meal_date_picker_sheet.dart';
 import './meal_types.dart';
 
@@ -31,7 +34,7 @@ Future<void> showMealClaimSheet({
   );
 }
 
-class MealClaimSheet extends StatefulWidget {
+class MealClaimSheet extends ConsumerStatefulWidget {
   final MealClaimSheetMode mode;
   final MealClaimItem? initial;
   final ValueChanged<MealClaimItem>? onDeleted;
@@ -46,16 +49,17 @@ class MealClaimSheet extends StatefulWidget {
   });
 
   @override
-  State<MealClaimSheet> createState() => _MealClaimSheetState();
+  ConsumerState<MealClaimSheet> createState() => _MealClaimSheetState();
 }
 
-class _MealClaimSheetState extends State<MealClaimSheet> {
+class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   // Form
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   late MealClaimSheetMode _mode;
   late bool _isNew;
   late MealClaimItem _item;
+  Future<MealClaimItem>? _detailFuture;
 
   late TextEditingController _usedDateController;
   late TextEditingController _approvalController;
@@ -68,6 +72,9 @@ class _MealClaimSheetState extends State<MealClaimSheet> {
     _mode = widget.mode;
     _isNew = widget.initial == null;
     _item = widget.initial ?? _buildNewItem();
+    if (!_isNew && _item.id != 0) {
+      _detailFuture = _fetchDetail();
+    }
 
     _usedDateController = TextEditingController(
       text: DateFormat('yyyy-MM-dd').format(_item.usedDate),
@@ -106,6 +113,8 @@ class _MealClaimSheetState extends State<MealClaimSheet> {
       createdByName: '나',
       canEdit: true,
       canDelete: true,
+      participantsCount: 1,
+      participantsSum: 0,
       participants: const [MealParticipant(name: '나', amount: 0)],
     );
   }
@@ -181,6 +190,10 @@ class _MealClaimSheetState extends State<MealClaimSheet> {
               orElse: () => const MealParticipant(name: '나', amount: 0),
             )
             .amount;
+    final participantsSum = baseParticipants.fold<int>(
+      0,
+      (sum, p) => sum + p.amount,
+    );
 
     return _item.copyWith(
       ym: ym,
@@ -189,7 +202,113 @@ class _MealClaimSheetState extends State<MealClaimSheet> {
       merchantName: _merchantController.text.trim(),
       totalAmount: total,
       myAmount: myAmount,
+      participantsCount: baseParticipants.length,
+      participantsSum: participantsSum,
       participants: baseParticipants,
+    );
+  }
+
+  Future<MealClaimItem> _fetchDetail() async {
+    final detail = await ref
+        .read(mealRepoProvider)
+        .getClaimDetail(claimId: _item.id);
+
+    return detail;
+  }
+
+  Widget _buildParticipantsSection({required bool editable}) {
+    if (_detailFuture == null) {
+      return _buildParticipantsContent(_item.participants, editable: editable);
+    }
+
+    return FutureBuilder<MealClaimItem>(
+      future: _detailFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildParticipantsLoading();
+        }
+        if (snapshot.hasError) {
+          return _buildParticipantsError(snapshot.error);
+        }
+        final detail = snapshot.data ?? _item;
+        return _buildParticipantsContent(
+          detail.participants,
+          editable: editable,
+        );
+      },
+    );
+  }
+
+  Widget _buildParticipantsLoading() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: Sizes.size12),
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  Widget _buildParticipantsError(Object? error) {
+    if (error == null) {
+      return const Text('대상자 정보를 불러오지 못했습니다.');
+    }
+    return Text(
+      '${humanizeErrorMessage(error)}\n${error.toString()}',
+      style: const TextStyle(color: Colors.redAccent),
+    );
+  }
+
+  Widget _buildParticipantsContent(
+    List<MealParticipant> participants, {
+    required bool editable,
+  }) {
+    if (!editable) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '대상자 분배',
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          Gaps.v8,
+          ...participants.map(
+            (p) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: Sizes.size4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(p.name),
+                  Text('${formatMealAmount(p.amount)}원'),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            '대상자',
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ),
+        Gaps.v8,
+        _ParticipantsCard(
+          participants: participants,
+          onAdd: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('대상자 추가는 다음 단계에서 구현합니다.')),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -292,7 +411,12 @@ class _MealClaimSheetState extends State<MealClaimSheet> {
 
               // 콘텐츠
               if (!_isEdit)
-                _ViewContent(item: _item)
+                _ViewContent(
+                  item: _item,
+                  participantsSection: _buildParticipantsSection(
+                    editable: false,
+                  ),
+                )
               else
                 Form(
                   key: _formKey,
@@ -371,26 +495,7 @@ class _MealClaimSheetState extends State<MealClaimSheet> {
 
                       Gaps.v20,
 
-                      // 대상자(표시만)
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          '대상자',
-                          style: Theme.of(context).textTheme.labelLarge
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                      Gaps.v8,
-                      _ParticipantsCard(
-                        participants: _item.participants,
-                        onAdd: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('대상자 추가는 다음 단계에서 구현합니다.'),
-                            ),
-                          );
-                        },
-                      ),
+                      _buildParticipantsSection(editable: true),
                     ],
                   ),
                 ),
@@ -438,8 +543,9 @@ class _MealClaimSheetState extends State<MealClaimSheet> {
 /// =======================
 class _ViewContent extends StatelessWidget {
   final MealClaimItem item;
+  final Widget participantsSection;
 
-  const _ViewContent({required this.item});
+  const _ViewContent({required this.item, required this.participantsSection});
 
   @override
   Widget build(BuildContext context) {
@@ -464,22 +570,7 @@ class _ViewContent extends StatelessWidget {
         _InfoRow(label: '총액', value: '${formatMealAmount(item.totalAmount)}원'),
         _InfoRow(label: '본인부담', value: '${formatMealAmount(item.myAmount)}원'),
         Gaps.v16,
-        Text(
-          '대상자 분배',
-          style: Theme.of(
-            context,
-          ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
-        ),
-        Gaps.v8,
-        ...item.participants.map(
-          (p) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: Sizes.size4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [Text(p.name), Text('${formatMealAmount(p.amount)}원')],
-            ),
-          ),
-        ),
+        participantsSection,
         Gaps.v16,
         _InfoRow(label: '입력자', value: createdBy),
       ],

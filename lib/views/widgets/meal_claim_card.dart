@@ -68,7 +68,8 @@ class MealClaimCard extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  '대상자 ${item.participants.length}명',
+                  '대상자 ${item.participantsCount}명 / '
+                  '${formatMealAmount(item.participantsSum)}원',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: Colors.black54,
                   ),

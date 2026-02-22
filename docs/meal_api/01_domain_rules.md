@@ -39,21 +39,25 @@
 
 ## 7) 조회/수정/삭제 권한
 - `my/items`: "내가 참여자"인 건만 보임.
-- `claim detail` GET: 참여자만 조회 가능(비참여자는 404).
+- `my/created`: "내가 작성자(created_by)"인 건만 보임. (대리 입력 포함)
+- `claim detail` GET: 참여자 또는 작성자는 조회 가능(둘 다 아니면 404).
 - PATCH/DELETE: 작성자만 가능(그 외 403).
 
 ## 8) UI 구현 시 주의점
 - 리스트 응답에 pagination이 없어 월 데이터가 많으면 전량 수신됨.
 - 정렬은 서버가 `used_date ASC, id ASC`로 고정.
+- `my/items`와 `my/created`는 조회 기준만 다르고 item 스키마는 동일.
 - claim 응답의 `can_edit`, `can_delete`를 버튼 활성화 조건으로 사용 가능.
 - soft delete(`is_deleted=true`) 방식이라 삭제 후 재조회 시 목록에서 사라짐.
 
 ## 참조(코드 위치)
-- `mysite/api/v1/views/meals.py:79` (`ym` 정규화)
+- `mysite/api/v1/views/meals.py:79` (`my/items` ym 정규화)
 - `mysite/api/v1/views/meals.py:95` (`my/items` 정렬)
-- `mysite/api/v1/views/meals.py:229` (detail 조회 참여자 제한)
-- `mysite/api/v1/views/meals.py:248` (수정 작성자 제한)
-- `mysite/api/v1/views/meals.py:288` (삭제 작성자 제한)
+- `mysite/api/v1/views/meals.py:134` (`my/created` ym 정규화; `svc.normalize_ym`)
+- `mysite/api/v1/views/meals.py:149` (`my/created` 정렬)
+- `mysite/api/v1/views/meals.py:283` (detail 조회 참여자/작성자 허용)
+- `mysite/api/v1/views/meals.py:302` (수정 작성자 제한)
+- `mysite/api/v1/views/meals.py:342` (삭제 작성자 제한)
 - `mysite/wtm/services/meal_claims.py:19` (승인번호 검증/월중복)
 - `mysite/wtm/services/meal_claims.py:86` (participants 검증)
 - `mysite/wtm/services/meal_claims.py:165` (claim payload 전체 검증)
