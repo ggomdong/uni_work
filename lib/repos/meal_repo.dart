@@ -40,6 +40,28 @@ class MealRepository {
     return MealClaimItem.fromDetailJson(Map<String, dynamic>.from(data));
   }
 
+  Future<MealClaimItem> createClaim({
+    required Map<String, dynamic> payload,
+  }) async {
+    final response = await _dio.post('api/v1/meals/claims/', data: payload);
+    final data = response.data;
+    if (data is! Map) throw Exception('Invalid claim create response');
+    return MealClaimItem.fromDetailJson(Map<String, dynamic>.from(data));
+  }
+
+  Future<MealClaimItem> updateClaim({
+    required int claimId,
+    required Map<String, dynamic> payload,
+  }) async {
+    final response = await _dio.patch(
+      'api/v1/meals/claims/$claimId/',
+      data: payload,
+    );
+    final data = response.data;
+    if (data is! Map) throw Exception('Invalid claim update response');
+    return MealClaimItem.fromDetailJson(Map<String, dynamic>.from(data));
+  }
+
   Future<void> deleteClaim({required int claimId}) async {
     await _dio.delete('api/v1/meals/claims/$claimId/');
   }

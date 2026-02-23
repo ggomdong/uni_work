@@ -61,6 +61,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   late MealClaimItem _item;
   Future<MealClaimItem>? _detailFuture;
   bool _deleting = false;
+  bool _saving = false;
 
   late TextEditingController _usedDateController;
   late TextEditingController _approvalController;
@@ -116,11 +117,20 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
       canDelete: true,
       participantsCount: 1,
       participantsSum: 0,
-      participants: const [MealParticipant(name: '나', amount: 0)],
+      participants: const [MealParticipant(userId: 0, name: '나', amount: 0)],
     );
   }
 
+  void _syncControllersFromItem(MealClaimItem item) {
+    _usedDateController.text = DateFormat('yyyy-MM-dd').format(item.usedDate);
+    _approvalController.text = item.approvalNo;
+    _merchantController.text = item.merchantName;
+    _amountController.text =
+        item.totalAmount == 0 ? '' : item.totalAmount.toString();
+  }
+
   void _switchToEdit() {
+    _syncControllersFromItem(_item);
     setState(() => _mode = MealClaimSheetMode.edit);
   }
 
@@ -181,14 +191,18 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
 
     final baseParticipants =
         _item.participants.isEmpty
-            ? const [MealParticipant(name: '나', amount: 0)]
+            ? const [MealParticipant(userId: 0, name: '나', amount: 0)]
             : _item.participants;
 
     final myAmount =
         baseParticipants
             .firstWhere(
               (p) => p.name == '나',
-              orElse: () => const MealParticipant(name: '나', amount: 0),
+              orElse: () => const MealParticipant(
+                userId: 0,
+                name: '나',
+                amount: 0,
+              ),
             )
             .amount;
     final participantsSum = baseParticipants.fold<int>(
@@ -213,6 +227,10 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     final detail = await ref
         .read(mealRepoProvider)
         .getClaimDetail(claimId: _item.id);
+
+    if (mounted) {
+      setState(() => _item = detail);
+    }
 
     return detail;
   }
@@ -313,13 +331,81 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     );
   }
 
-  void _onSave() {
+  Future<void> _onSave() async {
     final ok = _formKey.currentState?.validate() ?? false;
     if (!ok) return;
 
     final updated = _buildItemFromForm();
-    widget.onSaved?.call(updated);
-    _switchToView(updated: updated);
+    if (updated.participants.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('대상자를 입력해주세요.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+    if (updated.participants.any((p) => p.userId == 0)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('대상자 정보가 올바르지 않습니다.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+    if (updated.participantsSum != updated.totalAmount) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('분배 합계가 총액과 일치해야 합니다.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    final payload = {
+      'used_date': DateFormat('yyyy-MM-dd').format(updated.usedDate),
+      'amount': updated.totalAmount,
+      'merchant_name': updated.merchantName.trim(),
+      'approval_no': updated.approvalNo.trim().isEmpty
+          ? null
+          : updated.approvalNo.trim(),
+      'participants':
+          updated.participants
+              .map((p) => {'user_id': p.userId, 'amount': p.amount})
+              .toList(),
+    };
+
+    setState(() => _saving = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final isCreate = _isNew || updated.id == 0;
+      final repo = ref.read(mealRepoProvider);
+      final MealClaimItem serverItem =
+          isCreate
+              ? await repo.createClaim(payload: payload)
+              : await repo.updateClaim(
+                claimId: updated.id,
+                payload: payload,
+              );
+      if (!mounted) return;
+      _switchToView(updated: serverItem);
+      widget.onSaved?.call(serverItem);
+      messenger.showSnackBar(const SnackBar(content: Text('저장되었습니다.')));
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            '${humanizeErrorMessage(error)}\n${error.toString()}',
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   void _onCancel() {
@@ -544,7 +630,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
                     Gaps.h12,
                     Expanded(
                       child: FilledButton(
-                        onPressed: _onSave,
+                        onPressed: _saving ? null : _onSave,
                         child: const Text('저장'),
                       ),
                     ),

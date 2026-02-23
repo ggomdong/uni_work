@@ -17,14 +17,28 @@ class MealSummary {
 }
 
 class MealParticipant {
+  final int userId;
   final String name;
   final int amount;
 
-  const MealParticipant({required this.name, required this.amount});
+  const MealParticipant({
+    required this.userId,
+    required this.name,
+    required this.amount,
+  });
 
   factory MealParticipant.fromJson(Map<String, dynamic> json) {
     return MealParticipant(
+      userId: _parseInt(json['user_id']),
       name: (json['name'] as String?) ?? '',
+      amount: _parseInt(json['amount']),
+    );
+  }
+
+  factory MealParticipant.fromDetailJson(Map<String, dynamic> json) {
+    return MealParticipant(
+      userId: _parseInt(json['user_id']),
+      name: (json['emp_name'] as String?) ?? '',
       amount: _parseInt(json['amount']),
     );
   }
@@ -86,9 +100,8 @@ class MealClaimItem {
             ? rawParticipants
                 .whereType<Map>()
                 .map(
-                  (e) => MealParticipant(
-                    name: (e['emp_name'] as String?) ?? '',
-                    amount: _parseInt(e['amount']),
+                  (e) => MealParticipant.fromDetailJson(
+                    Map<String, dynamic>.from(e),
                   ),
                 )
                 .toList()
@@ -104,7 +117,7 @@ class MealClaimItem {
       approvalNo: (json['approval_no'] as String?) ?? '',
       totalAmount: _parseInt(json['total_amount']),
       myAmount: _parseInt(json['my_amount']),
-      createdByName: (json['created_by_name'] as String?) ?? '',
+      createdByName: _parseCreatedByName(json),
       canEdit: _parseBool(json['can_edit']),
       canDelete: _parseBool(json['can_delete']),
       participantsCount: count != 0 ? count : participants.length,
@@ -172,6 +185,16 @@ DateTime _parseDate(dynamic value) {
     if (parsed != null) return parsed;
   }
   return DateTime(1970);
+}
+
+String _parseCreatedByName(Map<String, dynamic> json) {
+  final createdBy = json['created_by'];
+  if (createdBy is Map) {
+    final m = Map<String, dynamic>.from(createdBy);
+    return (m['emp_name'] as String?) ?? '';
+  }
+  // 하위호환(혹시 예전 키가 있을 경우)
+  return (json['created_by_name'] as String?) ?? '';
 }
 
 String formatMealAmount(int amount) {
