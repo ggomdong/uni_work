@@ -60,6 +60,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   late bool _isNew;
   late MealClaimItem _item;
   Future<MealClaimItem>? _detailFuture;
+  bool _deleting = false;
 
   late TextEditingController _usedDateController;
   late TextEditingController _approvalController;
@@ -330,6 +331,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   }
 
   Future<void> _confirmDelete() async {
+    if (_isNew || !_item.canDelete || _deleting) return;
     final result = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -351,8 +353,27 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     );
 
     if (result == true) {
-      widget.onDeleted?.call(_item);
-      if (mounted) Navigator.of(context).pop();
+      setState(() => _deleting = true);
+      final messenger = ScaffoldMessenger.of(context);
+      try {
+        await ref.read(mealRepoProvider).deleteClaim(claimId: _item.id);
+        if (!mounted) return;
+        widget.onDeleted?.call(_item);
+        Navigator.of(context).pop();
+        messenger.showSnackBar(const SnackBar(content: Text('삭제되었습니다.')));
+      } catch (error) {
+        if (!mounted) return;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              '${humanizeErrorMessage(error)}\n${error.toString()}',
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      } finally {
+        if (mounted) setState(() => _deleting = false);
+      }
     }
   }
 
@@ -506,7 +527,8 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
               if (!_isEdit)
                 _ViewActions(
                   canEdit: _item.canEdit,
-                  canDelete: _item.canDelete,
+                  canDelete: !_isNew && _item.canDelete,
+                  deleting: _deleting,
                   onEdit: _switchToEdit,
                   onDelete: _confirmDelete,
                 )
@@ -660,12 +682,14 @@ class _InfoRow extends StatelessWidget {
 class _ViewActions extends StatelessWidget {
   final bool canEdit;
   final bool canDelete;
+  final bool deleting;
   final VoidCallback onEdit;
   final Future<void> Function() onDelete;
 
   const _ViewActions({
     required this.canEdit,
     required this.canDelete,
+    required this.deleting,
     required this.onEdit,
     required this.onDelete,
   });
@@ -686,7 +710,7 @@ class _ViewActions extends StatelessWidget {
         if (canDelete)
           Expanded(
             child: OutlinedButton(
-              onPressed: () => onDelete(),
+              onPressed: deleting ? null : () => onDelete(),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.redAccent,
               ),

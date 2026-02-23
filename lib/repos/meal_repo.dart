@@ -40,6 +40,10 @@ class MealRepository {
     return MealClaimItem.fromDetailJson(Map<String, dynamic>.from(data));
   }
 
+  Future<void> deleteClaim({required int claimId}) async {
+    await _dio.delete('api/v1/meals/claims/$claimId/');
+  }
+
   List<MealClaimItem> _parseItems(dynamic data) {
     if (data is! Map) return <MealClaimItem>[];
     final items = data['items'];
