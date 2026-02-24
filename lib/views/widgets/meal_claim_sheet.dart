@@ -7,6 +7,7 @@ import '../../constants/gaps.dart';
 import '../../constants/sizes.dart';
 import '../../repos/meal_repo.dart';
 import '../../utils.dart';
+import './app_toast.dart';
 import './meal_date_picker_sheet.dart';
 import './meal_types.dart';
 
@@ -323,9 +324,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
         _ParticipantsCard(
           participants: participants,
           onAdd: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('대상자 추가는 다음 단계에서 구현합니다.')),
-            );
+            AppToast.show(context, '대상자 추가는 다음 단계에서 구현합니다.');
           },
         ),
       ],
@@ -338,29 +337,26 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
 
     final updated = _buildItemFromForm();
     if (updated.participants.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('대상자를 입력해주세요.'),
-          backgroundColor: Colors.redAccent,
-        ),
+      AppToast.show(
+        context,
+        '대상자를 입력해주세요.',
+        backgroundColor: Colors.redAccent,
       );
       return;
     }
     if (updated.participants.any((p) => p.userId == 0)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('대상자 정보가 올바르지 않습니다.'),
-          backgroundColor: Colors.redAccent,
-        ),
+      AppToast.show(
+        context,
+        '대상자 정보가 올바르지 않습니다.',
+        backgroundColor: Colors.redAccent,
       );
       return;
     }
     if (updated.participantsSum != updated.totalAmount) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('분배 합계가 총액과 일치해야 합니다.'),
-          backgroundColor: Colors.redAccent,
-        ),
+      AppToast.show(
+        context,
+        '분배 합계가 총액과 일치해야 합니다.',
+        backgroundColor: Colors.redAccent,
       );
       return;
     }
@@ -379,7 +375,6 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     };
 
     setState(() => _saving = true);
-    final messenger = ScaffoldMessenger.of(context);
     try {
       final isCreate = _isNew || updated.id == 0;
       final repo = ref.read(mealRepoProvider);
@@ -393,16 +388,13 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
       if (!mounted) return;
       _switchToView(updated: serverItem);
       widget.onSaved?.call(serverItem);
-      messenger.showSnackBar(const SnackBar(content: Text('저장되었습니다.')));
+      AppToast.show(context, '저장되었습니다.');
     } catch (error) {
       if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            '${humanizeErrorMessage(error)}\n${error.toString()}',
-          ),
-          backgroundColor: Colors.redAccent,
-        ),
+      AppToast.show(
+        context,
+        '${humanizeErrorMessage(error)}\n${error.toString()}',
+        backgroundColor: Colors.redAccent,
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -441,22 +433,18 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
 
     if (result == true) {
       setState(() => _deleting = true);
-      final messenger = ScaffoldMessenger.of(context);
       try {
         await ref.read(mealRepoProvider).deleteClaim(claimId: _item.id);
         if (!mounted) return;
         widget.onDeleted?.call(_item);
         Navigator.of(context).pop();
-        messenger.showSnackBar(const SnackBar(content: Text('삭제되었습니다.')));
+        AppToast.show(context, '삭제되었습니다.');
       } catch (error) {
         if (!mounted) return;
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              '${humanizeErrorMessage(error)}\n${error.toString()}',
-            ),
-            backgroundColor: Colors.redAccent,
-          ),
+        AppToast.show(
+          context,
+          '${humanizeErrorMessage(error)}\n${error.toString()}',
+          backgroundColor: Colors.redAccent,
         );
       } finally {
         if (mounted) setState(() => _deleting = false);
