@@ -112,7 +112,8 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
       approvalNo: '',
       totalAmount: 0,
       myAmount: 0,
-      createdByName: '나',
+      createdById: 0,
+      createdByName: '',
       canEdit: true,
       canDelete: true,
       participantsCount: 1,
@@ -658,12 +659,7 @@ class _ViewContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateText = DateFormat('yyyy-MM-dd').format(item.usedDate);
-
-    const myName = '김지민';
-    final createdBy =
-        item.createdByName == '나'
-            ? (myName.isNotEmpty ? '나($myName)' : '나')
-            : item.createdByName;
+    final createdBy = item.createdByName.isEmpty ? '-' : item.createdByName;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

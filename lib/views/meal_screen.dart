@@ -12,6 +12,7 @@ import './widgets/meal_my_claim_list.dart';
 import './widgets/meal_claim_sheet.dart';
 import './widgets/meal_types.dart';
 import '../view_models/meal_items_view_model.dart';
+import '../view_models/meal_summary_view_model.dart';
 
 class MealScreen extends ConsumerStatefulWidget {
   const MealScreen({super.key});
@@ -74,12 +75,7 @@ class _MealScreenState extends ConsumerState<MealScreen> {
   }
 
   void _onRefresh() {
-    final query = MealItemsQuery(
-      ym: _yearMonth,
-      type:
-          _selectedIndex == 0 ? MealItemsType.created : MealItemsType.used,
-    );
-    ref.read(mealItemsProvider(query).notifier).refresh();
+    _refreshAll(ym: _yearMonth);
     setState(() {
       _refreshTick++;
     });
@@ -88,29 +84,32 @@ class _MealScreenState extends ConsumerState<MealScreen> {
     ).showSnackBar(SnackBar(content: Text('새로고침 완료 ($_refreshTick)')));
   }
 
+  void _refreshAll({required String ym}) {
+    final createdQuery = MealItemsQuery(ym: ym, type: MealItemsType.created);
+    final usedQuery = MealItemsQuery(ym: ym, type: MealItemsType.used);
+    ref.read(mealItemsProvider(createdQuery).notifier).refresh();
+    ref.read(mealItemsProvider(usedQuery).notifier).refresh();
+    ref.read(mealSummaryProvider(ym).notifier).refresh();
+  }
+
   void _openClaimSheet({
     MealClaimItem? item,
     MealClaimSheetMode mode = MealClaimSheetMode.view,
   }) {
+    final oldYm = item?.ym ?? _yearMonth;
     showMealClaimSheet(
       context: context,
       mode: mode,
       initial: item,
       onDeleted: (deleted) {
-        final query = MealItemsQuery(
-          ym: _yearMonth,
-          type:
-              _selectedIndex == 0 ? MealItemsType.created : MealItemsType.used,
-        );
-        ref.read(mealItemsProvider(query).notifier).refresh();
+        _refreshAll(ym: deleted.ym.isEmpty ? _yearMonth : deleted.ym);
       },
       onSaved: (saved) {
-        final query = MealItemsQuery(
-          ym: _yearMonth,
-          type:
-              _selectedIndex == 0 ? MealItemsType.created : MealItemsType.used,
-        );
-        ref.read(mealItemsProvider(query).notifier).refresh();
+        final newYm = saved.ym.isEmpty ? _yearMonth : saved.ym;
+        _refreshAll(ym: newYm);
+        if (oldYm != newYm) {
+          _refreshAll(ym: oldYm);
+        }
       },
     );
   }

@@ -52,6 +52,7 @@ class MealClaimItem {
   final String approvalNo;
   final int totalAmount;
   final int myAmount;
+  final int createdById;
   final String createdByName;
   final bool canEdit;
   final bool canDelete;
@@ -67,6 +68,7 @@ class MealClaimItem {
     required this.approvalNo,
     required this.totalAmount,
     required this.myAmount,
+    required this.createdById,
     required this.createdByName,
     required this.canEdit,
     required this.canDelete,
@@ -76,6 +78,7 @@ class MealClaimItem {
   });
 
   factory MealClaimItem.fromJson(Map<String, dynamic> json) {
+    final createdBy = _parseCreatedBy(json);
     return MealClaimItem(
       id: _parseInt(json['id']),
       ym: (json['ym'] as String?) ?? '',
@@ -84,7 +87,8 @@ class MealClaimItem {
       approvalNo: (json['approval_no'] as String?) ?? '',
       totalAmount: _parseInt(json['total_amount']),
       myAmount: _parseInt(json['my_amount']),
-      createdByName: (json['created_by_name'] as String?) ?? '',
+      createdById: createdBy.id,
+      createdByName: createdBy.name,
       canEdit: _parseBool(json['can_edit']),
       canDelete: _parseBool(json['can_delete']),
       participantsCount: _parseInt(json['participants_count']),
@@ -94,6 +98,7 @@ class MealClaimItem {
   }
 
   factory MealClaimItem.fromDetailJson(Map<String, dynamic> json) {
+    final createdBy = _parseCreatedBy(json);
     final rawParticipants = json['participants'];
     final participants =
         rawParticipants is List
@@ -117,7 +122,8 @@ class MealClaimItem {
       approvalNo: (json['approval_no'] as String?) ?? '',
       totalAmount: _parseInt(json['total_amount']),
       myAmount: _parseInt(json['my_amount']),
-      createdByName: _parseCreatedByName(json),
+      createdById: createdBy.id,
+      createdByName: createdBy.name,
       canEdit: _parseBool(json['can_edit']),
       canDelete: _parseBool(json['can_delete']),
       participantsCount: count != 0 ? count : participants.length,
@@ -135,6 +141,7 @@ class MealClaimItem {
     String? approvalNo,
     int? totalAmount,
     int? myAmount,
+    int? createdById,
     String? createdByName,
     bool? canEdit,
     bool? canDelete,
@@ -150,6 +157,7 @@ class MealClaimItem {
       approvalNo: approvalNo ?? this.approvalNo,
       totalAmount: totalAmount ?? this.totalAmount,
       myAmount: myAmount ?? this.myAmount,
+      createdById: createdById ?? this.createdById,
       createdByName: createdByName ?? this.createdByName,
       canEdit: canEdit ?? this.canEdit,
       canDelete: canDelete ?? this.canDelete,
@@ -188,13 +196,31 @@ DateTime _parseDate(dynamic value) {
 }
 
 String _parseCreatedByName(Map<String, dynamic> json) {
+  return (json['created_by_name'] as String?) ?? '';
+}
+
+_CreatedBy _parseCreatedBy(Map<String, dynamic> json) {
   final createdBy = json['created_by'];
   if (createdBy is Map) {
     final m = Map<String, dynamic>.from(createdBy);
-    return (m['emp_name'] as String?) ?? '';
+    final id =
+        _parseInt(m['id'] ?? m['user_id'] ?? m['emp_id'] ?? m['employee_id']);
+    final name =
+        (m['emp_name'] as String?) ??
+        (m['name'] as String?) ??
+        (m['full_name'] as String?) ??
+        '';
+    return _CreatedBy(id: id, name: name);
   }
   // 하위호환(혹시 예전 키가 있을 경우)
-  return (json['created_by_name'] as String?) ?? '';
+  return _CreatedBy(id: 0, name: _parseCreatedByName(json));
+}
+
+class _CreatedBy {
+  final int id;
+  final String name;
+
+  const _CreatedBy({required this.id, required this.name});
 }
 
 String formatMealAmount(int amount) {
