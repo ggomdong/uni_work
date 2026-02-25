@@ -142,7 +142,10 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
 
   void _switchToEdit() {
     _syncControllersFromItem(_item);
-    setState(() => _mode = MealClaimSheetMode.edit);
+    setState(() {
+      _syncAmountControllers(_item.participants);
+      _mode = MealClaimSheetMode.edit;
+    });
   }
 
   void _switchToView({MealClaimItem? updated}) {
@@ -329,7 +332,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
         Gaps.v8,
         _ParticipantsEditor(
           participants: participants,
-          amountControllers: _amountControllers,
+          ensureController: _ensureAmountController,
           onAdd: _onPickParticipants,
           onRemove: _removeParticipant,
           onAmountChanged: _onParticipantAmountChanged,
@@ -382,14 +385,16 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
       _amountControllers.remove(id);
     }
     for (final p in participants) {
-      final controller =
-          _amountControllers[p.userId] ??= TextEditingController(
-            text: p.amount.toString(),
-          );
       final nextText = p.amount.toString();
-      if (controller.text != nextText) {
-        controller.text = nextText;
+      final controller = _amountControllers[p.userId];
+      if (controller == null) {
+        _amountControllers[p.userId] = TextEditingController(text: nextText);
+        continue;
       }
+      // "프로그램이 amount를 바꾼 직후"에만 이 함수가 호출된다는 전제.
+      // 사용자가 입력 중일 때 build에서 text를 덮어쓰면 커서 튐이 생길 수 있으니
+      // 동기화는 이 함수에서만, 필요한 순간에만 수행한다.
+      if (controller.text != nextText) controller.text = nextText;
     }
   }
 
@@ -416,6 +421,15 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
         _item.ym.isNotEmpty
             ? _item.ym
             : DateFormat('yyyyMM').format(_item.usedDate);
+
+    if (usedDateText == null && fallbackYm.trim().isEmpty) {
+      AppToast.show(
+        context,
+        '사용일 또는 월 정보를 먼저 입력해주세요.',
+        backgroundColor: Colors.redAccent,
+      );
+      return;
+    }
 
     try {
       final options = await ref
@@ -515,6 +529,12 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     _syncAmountControllers(next);
   }
 
+  TextEditingController _ensureAmountController(MealParticipant p) {
+    return _amountControllers[p.userId] ??= TextEditingController(
+      text: p.amount.toString(),
+    );
+  }
+
   Future<void> _onSave() async {
     final ok = _formKey.currentState?.validate() ?? false;
     if (!ok) return;
@@ -528,14 +548,10 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     );
 
     if (updated.participants.isEmpty) {
-      AppToast.show(
-        context,
-        '대상자를 입력해주세요.',
-        backgroundColor: const Color.fromARGB(255, 63, 18, 18),
-      );
+      AppToast.show(context, '대상자를 입력해주세요.', backgroundColor: Colors.redAccent);
       return;
     }
-    if (updated.participants.any((p) => p.userId == 0)) {
+    if (updated.participants.any((p) => p.userId <= 0)) {
       AppToast.show(
         context,
         '대상자 정보가 올바르지 않습니다.',
@@ -591,6 +607,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
               : await repo.updateClaim(claimId: updated.id, payload: payload);
       if (!mounted) return;
       _switchToView(updated: serverItem);
+      _syncAmountControllers(serverItem.participants);
       widget.onSaved?.call(serverItem);
       AppToast.show(context, '저장되었습니다.');
     } catch (error) {
@@ -879,7 +896,7 @@ class _ViewContent extends StatelessWidget {
 /// =======================
 class _ParticipantsEditor extends StatelessWidget {
   final List<MealParticipant> participants;
-  final Map<int, TextEditingController> amountControllers;
+  final TextEditingController Function(MealParticipant p) ensureController;
   final VoidCallback onAdd;
   final ValueChanged<int> onRemove;
   final void Function(int userId, String value) onAmountChanged;
@@ -888,7 +905,7 @@ class _ParticipantsEditor extends StatelessWidget {
 
   const _ParticipantsEditor({
     required this.participants,
-    required this.amountControllers,
+    required this.ensureController,
     required this.onAdd,
     required this.onRemove,
     required this.onAmountChanged,
@@ -930,7 +947,7 @@ class _ParticipantsEditor extends StatelessWidget {
                 SizedBox(
                   width: 90,
                   child: TextField(
-                    controller: amountControllers[p.userId],
+                    controller: ensureController(p),
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     textAlign: TextAlign.right,
