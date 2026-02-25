@@ -40,6 +40,24 @@ class MealRepository {
     return MealClaimItem.fromDetailJson(Map<String, dynamic>.from(data));
   }
 
+  Future<MealOptions> getMealOptions({String? usedDate, String? ym}) async {
+    final query = <String, dynamic>{};
+    if (usedDate != null && usedDate.trim().isNotEmpty) {
+      query['used_date'] = usedDate.trim();
+    } else if (ym != null && ym.trim().isNotEmpty) {
+      query['ym'] = ym.trim();
+    }
+
+    final response = await _dio.get(
+      'api/v1/meals/options/',
+      queryParameters: query.isEmpty ? null : query,
+    );
+
+    final data = response.data;
+    if (data is! Map) throw Exception('Invalid options response');
+    return MealOptions.fromJson(Map<String, dynamic>.from(data));
+  }
+
   Future<MealClaimItem> createClaim({
     required Map<String, dynamic> payload,
   }) async {

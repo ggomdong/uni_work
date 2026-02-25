@@ -9,6 +9,7 @@ import '../../repos/meal_repo.dart';
 import '../../utils.dart';
 import './app_toast.dart';
 import './meal_date_picker_sheet.dart';
+import './meal_participant_picker_sheet.dart';
 import './meal_types.dart';
 
 enum MealClaimSheetMode { view, edit }
@@ -63,6 +64,8 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   Future<MealClaimItem>? _detailFuture;
   bool _deleting = false;
   bool _saving = false;
+  bool _autoDistribute = true;
+  final Map<int, TextEditingController> _amountControllers = {};
 
   late TextEditingController _usedDateController;
   late TextEditingController _approvalController;
@@ -78,6 +81,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     if (!_isNew && _item.id != 0) {
       _detailFuture = _fetchDetail();
     }
+    _autoDistribute = _isNew;
 
     _usedDateController = TextEditingController(
       text: DateFormat('yyyy-MM-dd').format(_item.usedDate),
@@ -87,6 +91,8 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     _amountController = TextEditingController(
       text: _item.totalAmount == 0 ? '' : _item.totalAmount.toString(),
     );
+    _amountController.addListener(_handleTotalAmountChange);
+    _syncAmountControllers(_item.participants);
   }
 
   @override
@@ -95,6 +101,9 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     _approvalController.dispose();
     _merchantController.dispose();
     _amountController.dispose();
+    for (final controller in _amountControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -117,9 +126,9 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
       createdByName: '',
       canEdit: true,
       canDelete: true,
-      participantsCount: 1,
+      participantsCount: 0,
       participantsSum: 0,
-      participants: const [MealParticipant(userId: 0, name: '나', amount: 0)],
+      participants: const <MealParticipant>[],
     );
   }
 
@@ -191,22 +200,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     final total = int.tryParse(_amountController.text.trim()) ?? 0;
     final ym = '${usedDate.year}${usedDate.month.toString().padLeft(2, '0')}';
 
-    final baseParticipants =
-        _item.participants.isEmpty
-            ? const [MealParticipant(userId: 0, name: '나', amount: 0)]
-            : _item.participants;
-
-    final myAmount =
-        baseParticipants
-            .firstWhere(
-              (p) => p.name == '나',
-              orElse: () => const MealParticipant(
-                userId: 0,
-                name: '나',
-                amount: 0,
-              ),
-            )
-            .amount;
+    final baseParticipants = _item.participants;
     final participantsSum = baseParticipants.fold<int>(
       0,
       (sum, p) => sum + p.amount,
@@ -218,7 +212,6 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
       approvalNo: _approvalController.text.trim(),
       merchantName: _merchantController.text.trim(),
       totalAmount: total,
-      myAmount: myAmount,
       participantsCount: baseParticipants.length,
       participantsSum: participantsSum,
       participants: baseParticipants,
@@ -231,13 +224,19 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
         .getClaimDetail(claimId: _item.id);
 
     if (mounted) {
-      setState(() => _item = detail);
+      setState(() {
+        _item = detail;
+        _syncAmountControllers(_item.participants);
+      });
     }
 
     return detail;
   }
 
   Widget _buildParticipantsSection({required bool editable}) {
+    if (editable) {
+      return _buildParticipantsContent(_item.participants, editable: true);
+    }
     if (_detailFuture == null) {
       return _buildParticipantsContent(_item.participants, editable: editable);
     }
@@ -311,36 +310,228 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            '대상자',
-            style: Theme.of(
-              context,
-            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '대상자',
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            if (participants.isNotEmpty)
+              TextButton(
+                onPressed: _redistributeEvenly,
+                child: const Text('다시 균등분배'),
+              ),
+          ],
         ),
         Gaps.v8,
-        _ParticipantsCard(
+        _ParticipantsEditor(
           participants: participants,
-          onAdd: () {
-            AppToast.show(context, '대상자 추가는 다음 단계에서 구현합니다.');
-          },
+          amountControllers: _amountControllers,
+          onAdd: _onPickParticipants,
+          onRemove: _removeParticipant,
+          onAmountChanged: _onParticipantAmountChanged,
+          participantsSum: _sumParticipants(participants),
+          totalAmount: _currentTotalAmount(),
         ),
       ],
     );
+  }
+
+  int _currentTotalAmount() {
+    return int.tryParse(_amountController.text.trim()) ?? _item.totalAmount;
+  }
+
+  int _sumParticipants(List<MealParticipant> participants) {
+    return participants.fold<int>(0, (sum, p) => sum + p.amount);
+  }
+
+  // 저장 직전에 컨트롤러 텍스트를 기준으로 participants.amount를 확정한다.
+  // (IME/포커스 타이밍 이슈로 onChanged가 마지막 입력을 state에 반영하기 전에 저장될 수 있음)
+  List<MealParticipant> _participantsFromControllers() {
+    return _item.participants.map((p) {
+      final c = _amountControllers[p.userId];
+      final n = int.tryParse((c?.text ?? '').trim()) ?? 0;
+      return p.copyWith(amount: n);
+    }).toList();
+  }
+
+  List<MealParticipant> _distributeEvenly(
+    List<MealParticipant> participants,
+    int totalAmount,
+  ) {
+    if (participants.isEmpty) return participants;
+    final n = participants.length;
+    final base = totalAmount ~/ n;
+    final remainder = totalAmount % n;
+    return List<MealParticipant>.generate(n, (i) {
+      final p = participants[i];
+      final amount = base + (i < remainder ? 1 : 0);
+      return p.copyWith(amount: amount);
+    });
+  }
+
+  void _syncAmountControllers(List<MealParticipant> participants) {
+    final ids = participants.map((p) => p.userId).toSet();
+    final removeIds =
+        _amountControllers.keys.where((id) => !ids.contains(id)).toList();
+    for (final id in removeIds) {
+      _amountControllers[id]?.dispose();
+      _amountControllers.remove(id);
+    }
+    for (final p in participants) {
+      final controller =
+          _amountControllers[p.userId] ??= TextEditingController(
+            text: p.amount.toString(),
+          );
+      final nextText = p.amount.toString();
+      if (controller.text != nextText) {
+        controller.text = nextText;
+      }
+    }
+  }
+
+  void _handleTotalAmountChange() {
+    if (!_autoDistribute) return;
+    if (_item.participants.isEmpty) return;
+    final total = _currentTotalAmount();
+    final next = _distributeEvenly(_item.participants, total);
+    setState(() {
+      _item = _item.copyWith(
+        participants: next,
+        participantsCount: next.length,
+        participantsSum: _sumParticipants(next),
+      );
+    });
+    _syncAmountControllers(next);
+  }
+
+  Future<void> _onPickParticipants() async {
+    final parsedDate = DateTime.tryParse(_usedDateController.text.trim());
+    final usedDateText =
+        parsedDate == null ? null : DateFormat('yyyy-MM-dd').format(parsedDate);
+    final fallbackYm =
+        _item.ym.isNotEmpty
+            ? _item.ym
+            : DateFormat('yyyyMM').format(_item.usedDate);
+
+    try {
+      final options = await ref
+          .read(mealRepoProvider)
+          .getMealOptions(usedDate: usedDateText, ym: fallbackYm);
+      if (!mounted) return;
+      final result = await showMealParticipantPickerSheet(
+        context: context,
+        users: options.users,
+        groups: options.groups,
+        selectedUserIds:
+            _item.participants
+                .map((p) => p.userId)
+                .where((id) => id > 0)
+                .toList(),
+      );
+      if (!mounted || result == null) return;
+
+      final existingAmounts = {
+        for (final p in _item.participants) p.userId: p.amount,
+      };
+      final participants =
+          result
+              .where((u) => u.id > 0)
+              .map(
+                (u) => MealParticipant(
+                  userId: u.id,
+                  name: u.empName,
+                  amount: existingAmounts[u.id] ?? 0,
+                ),
+              )
+              .toList();
+
+      final next =
+          _autoDistribute
+              ? _distributeEvenly(participants, _currentTotalAmount())
+              : participants;
+      setState(() {
+        _item = _item.copyWith(
+          participants: next,
+          participantsCount: next.length,
+          participantsSum: _sumParticipants(next),
+        );
+      });
+      _syncAmountControllers(next);
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.show(
+        context,
+        '${humanizeErrorMessage(error)}\n${error.toString()}',
+        backgroundColor: Colors.redAccent,
+      );
+    }
+  }
+
+  void _removeParticipant(int userId) {
+    final next = _item.participants.where((p) => p.userId != userId).toList();
+    final updated =
+        _autoDistribute ? _distributeEvenly(next, _currentTotalAmount()) : next;
+    setState(() {
+      _item = _item.copyWith(
+        participants: updated,
+        participantsCount: updated.length,
+        participantsSum: _sumParticipants(updated),
+      );
+    });
+    _syncAmountControllers(updated);
+  }
+
+  void _onParticipantAmountChanged(int userId, String value) {
+    final amount = int.tryParse(value.trim()) ?? 0;
+    final next =
+        _item.participants
+            .map((p) => p.userId == userId ? p.copyWith(amount: amount) : p)
+            .toList();
+    setState(() {
+      _autoDistribute = false;
+      _item = _item.copyWith(
+        participants: next,
+        participantsCount: next.length,
+        participantsSum: _sumParticipants(next),
+      );
+    });
+  }
+
+  void _redistributeEvenly() {
+    final total = _currentTotalAmount();
+    final next = _distributeEvenly(_item.participants, total);
+    setState(() {
+      _autoDistribute = true;
+      _item = _item.copyWith(
+        participants: next,
+        participantsCount: next.length,
+        participantsSum: _sumParticipants(next),
+      );
+    });
+    _syncAmountControllers(next);
   }
 
   Future<void> _onSave() async {
     final ok = _formKey.currentState?.validate() ?? false;
     if (!ok) return;
 
-    final updated = _buildItemFromForm();
+    // 컨트롤러 기준으로 분배금액을 최신화한 뒤, updated를 만든다.
+    final rebuiltParticipants = _participantsFromControllers();
+    final updated = _buildItemFromForm().copyWith(
+      participants: rebuiltParticipants,
+      participantsCount: rebuiltParticipants.length,
+      participantsSum: _sumParticipants(rebuiltParticipants),
+    );
+
     if (updated.participants.isEmpty) {
       AppToast.show(
         context,
         '대상자를 입력해주세요.',
-        backgroundColor: Colors.redAccent,
+        backgroundColor: const Color.fromARGB(255, 63, 18, 18),
       );
       return;
     }
@@ -348,6 +539,23 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
       AppToast.show(
         context,
         '대상자 정보가 올바르지 않습니다.',
+        backgroundColor: Colors.redAccent,
+      );
+      return;
+    }
+    if (updated.participants.any((p) => p.amount <= 0)) {
+      AppToast.show(
+        context,
+        '분배 금액은 0원보다 커야 합니다.',
+        backgroundColor: Colors.redAccent,
+      );
+      return;
+    }
+    final ids = updated.participants.map((p) => p.userId).toList();
+    if (ids.toSet().length != ids.length) {
+      AppToast.show(
+        context,
+        '대상자가 중복되었습니다.',
         backgroundColor: Colors.redAccent,
       );
       return;
@@ -365,9 +573,8 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
       'used_date': DateFormat('yyyy-MM-dd').format(updated.usedDate),
       'amount': updated.totalAmount,
       'merchant_name': updated.merchantName.trim(),
-      'approval_no': updated.approvalNo.trim().isEmpty
-          ? null
-          : updated.approvalNo.trim(),
+      'approval_no':
+          updated.approvalNo.trim().isEmpty ? null : updated.approvalNo.trim(),
       'participants':
           updated.participants
               .map((p) => {'user_id': p.userId, 'amount': p.amount})
@@ -381,10 +588,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
       final MealClaimItem serverItem =
           isCreate
               ? await repo.createClaim(payload: payload)
-              : await repo.updateClaim(
-                claimId: updated.id,
-                payload: payload,
-              );
+              : await repo.updateClaim(claimId: updated.id, payload: payload);
       if (!mounted) return;
       _switchToView(updated: serverItem);
       widget.onSaved?.call(serverItem);
@@ -518,7 +722,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
                   key: _formKey,
                   child: Column(
                     children: [
-                      // ✅ 순서: 사용일 → 승인번호 → 가맹점명 → 총액
+                      // 순서: 사용일 → 승인번호 → 가맹점명 → 총액
                       GestureDetector(
                         onTap: _pickUsedDate,
                         child: AbsorbPointer(
@@ -671,16 +875,31 @@ class _ViewContent extends StatelessWidget {
 }
 
 /// =======================
-/// Participants (표시용)
+/// Participants (편집용)
 /// =======================
-class _ParticipantsCard extends StatelessWidget {
+class _ParticipantsEditor extends StatelessWidget {
   final List<MealParticipant> participants;
+  final Map<int, TextEditingController> amountControllers;
   final VoidCallback onAdd;
+  final ValueChanged<int> onRemove;
+  final void Function(int userId, String value) onAmountChanged;
+  final int participantsSum;
+  final int totalAmount;
 
-  const _ParticipantsCard({required this.participants, required this.onAdd});
+  const _ParticipantsEditor({
+    required this.participants,
+    required this.amountControllers,
+    required this.onAdd,
+    required this.onRemove,
+    required this.onAmountChanged,
+    required this.participantsSum,
+    required this.totalAmount,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
       padding: const EdgeInsets.all(Sizes.size12),
       decoration: BoxDecoration(
@@ -689,20 +908,71 @@ class _ParticipantsCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          if (participants.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: Sizes.size8),
+              child: Text(
+                '대상자를 추가해주세요.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.black45,
+                ),
+              ),
+            ),
           for (final p in participants) ...[
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [Text(p.name), Text('${formatMealAmount(p.amount)}원')],
+              children: [
+                Expanded(
+                  child: Text(
+                    p.name,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                SizedBox(
+                  width: 90,
+                  child: TextField(
+                    controller: amountControllers[p.userId],
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    textAlign: TextAlign.right,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      suffixText: '원',
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                    ),
+                    onChanged: (value) => onAmountChanged(p.userId, value),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => onRemove(p.userId),
+                  icon: const Icon(Icons.close),
+                  tooltip: '삭제',
+                ),
+              ],
             ),
             Gaps.v8,
           ],
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.person_add_alt_1, size: 18),
-              label: const Text('대상자 추가'),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.person_add_alt_1, size: 18),
+                label: const Text('대상자 추가'),
+              ),
+              Text(
+                '${formatMealAmount(participantsSum)}원 / ${formatMealAmount(totalAmount)}원',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color:
+                      participantsSum == totalAmount
+                          ? Colors.black54
+                          : Colors.redAccent,
+                ),
+              ),
+            ],
           ),
         ],
       ),

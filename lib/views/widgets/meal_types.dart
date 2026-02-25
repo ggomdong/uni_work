@@ -27,6 +27,14 @@ class MealParticipant {
     required this.amount,
   });
 
+  MealParticipant copyWith({int? userId, String? name, int? amount}) {
+    return MealParticipant(
+      userId: userId ?? this.userId,
+      name: name ?? this.name,
+      amount: amount ?? this.amount,
+    );
+  }
+
   factory MealParticipant.fromJson(Map<String, dynamic> json) {
     return MealParticipant(
       userId: _parseInt(json['user_id']),
@@ -40,6 +48,99 @@ class MealParticipant {
       userId: _parseInt(json['user_id']),
       name: (json['emp_name'] as String?) ?? '',
       amount: _parseInt(json['amount']),
+    );
+  }
+}
+
+class MealOptionUser {
+  final int id;
+  final String empName;
+  final String dept;
+  final String position;
+
+  const MealOptionUser({
+    required this.id,
+    required this.empName,
+    required this.dept,
+    required this.position,
+  });
+
+  factory MealOptionUser.fromJson(Map<String, dynamic> json) {
+    return MealOptionUser(
+      id: _parseInt(json['id']),
+      empName: (json['emp_name'] as String?) ?? '',
+      dept: (json['dept'] as String?) ?? '',
+      position: (json['position'] as String?) ?? '',
+    );
+  }
+}
+
+class MealOptionGroup {
+  final String dept;
+  final List<MealOptionUser> members;
+
+  const MealOptionGroup({required this.dept, required this.members});
+
+  factory MealOptionGroup.fromJson(Map<String, dynamic> json) {
+    final rawMembers = json['members'];
+    final members =
+        rawMembers is List
+            ? rawMembers
+                .whereType<Map>()
+                .map(
+                  (e) => MealOptionUser.fromJson(
+                    Map<String, dynamic>.from(e),
+                  ),
+                )
+                .toList()
+            : <MealOptionUser>[];
+    return MealOptionGroup(
+      dept: (json['dept'] as String?) ?? '',
+      members: members,
+    );
+  }
+}
+
+class MealOptions {
+  final String ym;
+  final List<MealOptionUser> users;
+  final List<MealOptionGroup> groups;
+
+  const MealOptions({
+    required this.ym,
+    required this.users,
+    required this.groups,
+  });
+
+  factory MealOptions.fromJson(Map<String, dynamic> json) {
+    final rawUsers = json['users'];
+    final rawGroups = json['groups'];
+    final users =
+        rawUsers is List
+            ? rawUsers
+                .whereType<Map>()
+                .map(
+                  (e) => MealOptionUser.fromJson(
+                    Map<String, dynamic>.from(e),
+                  ),
+                )
+                .toList()
+            : <MealOptionUser>[];
+    final groups =
+        rawGroups is List
+            ? rawGroups
+                .whereType<Map>()
+                .map(
+                  (e) => MealOptionGroup.fromJson(
+                    Map<String, dynamic>.from(e),
+                  ),
+                )
+                .toList()
+            : <MealOptionGroup>[];
+    return MealOptions(
+      ym: (json['ym'] as String?) ?? '',
+      users: users,
+      groups: groups,
     );
   }
 }
