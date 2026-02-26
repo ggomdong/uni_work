@@ -207,8 +207,7 @@ class _MealScreenState extends ConsumerState<MealScreen> {
   Widget build(BuildContext context) {
     final query = MealItemsQuery(
       ym: _yearMonth,
-      type:
-          _selectedIndex == 0 ? MealItemsType.created : MealItemsType.used,
+      type: _selectedIndex == 0 ? MealItemsType.created : MealItemsType.used,
     );
     final itemsAsync = ref.watch(mealItemsProvider(query));
 
@@ -330,7 +329,11 @@ class _MealScreenState extends ConsumerState<MealScreen> {
         elevation: 3,
         shape: const CircleBorder(),
         tooltip: '입력',
-        child: const Icon(Icons.restaurant_menu, color: Colors.white),
+        child: const Icon(
+          Icons.add,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

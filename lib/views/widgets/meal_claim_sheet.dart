@@ -322,11 +322,44 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
                 context,
               ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
-            if (participants.isNotEmpty)
-              TextButton(
-                onPressed: _redistributeEvenly,
-                child: const Text('다시 균등분배'),
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '균등분배',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                Gaps.h6,
+                Switch(
+                  value: _autoDistribute,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  onChanged: (next) {
+                    if (next == _autoDistribute) return;
+                    if (next && _item.participants.isNotEmpty) {
+                      final total = _currentTotalAmount();
+                      final redistributed = _distributeEvenly(
+                        _item.participants,
+                        total,
+                      );
+                      setState(() {
+                        _autoDistribute = true;
+                        _item = _item.copyWith(
+                          totalAmount: total,
+                          participants: redistributed,
+                          participantsCount: redistributed.length,
+                          participantsSum: _sumParticipants(redistributed),
+                        );
+                      });
+                      _syncAmountControllers(redistributed);
+                      return;
+                    }
+                    setState(() => _autoDistribute = next);
+                  },
+                ),
+              ],
+            ),
           ],
         ),
         Gaps.v8,
@@ -399,18 +432,24 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   }
 
   void _handleTotalAmountChange() {
-    if (!_autoDistribute) return;
-    if (_item.participants.isEmpty) return;
     final total = _currentTotalAmount();
-    final next = _distributeEvenly(_item.participants, total);
+    if (_autoDistribute && _item.participants.isNotEmpty) {
+      final next = _distributeEvenly(_item.participants, total);
+      setState(() {
+        _item = _item.copyWith(
+          totalAmount: total,
+          participants: next,
+          participantsCount: next.length,
+          participantsSum: _sumParticipants(next),
+        );
+      });
+      _syncAmountControllers(next);
+      return;
+    }
+
     setState(() {
-      _item = _item.copyWith(
-        participants: next,
-        participantsCount: next.length,
-        participantsSum: _sumParticipants(next),
-      );
+      _item = _item.copyWith(totalAmount: total);
     });
-    _syncAmountControllers(next);
   }
 
   Future<void> _onPickParticipants() async {
@@ -834,14 +873,20 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: _onCancel,
-                        child: const Text('취소'),
+                        child: const Text(
+                          '취소',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
                     Gaps.h12,
                     Expanded(
                       child: FilledButton(
                         onPressed: _saving ? null : _onSave,
-                        child: const Text('저장'),
+                        child: const Text(
+                          '저장',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
                   ],
