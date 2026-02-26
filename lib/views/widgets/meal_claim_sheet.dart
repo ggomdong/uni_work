@@ -150,7 +150,10 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
 
   void _switchToView({MealClaimItem? updated}) {
     setState(() {
-      if (updated != null) _item = updated;
+      if (updated != null) {
+        _item = updated;
+        _detailFuture = Future.value(updated);
+      }
       _mode = MealClaimSheetMode.view;
       _isNew = false;
     });
@@ -645,9 +648,18 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
               ? await repo.createClaim(payload: payload)
               : await repo.updateClaim(claimId: updated.id, payload: payload);
       if (!mounted) return;
-      _switchToView(updated: serverItem);
-      _syncAmountControllers(serverItem.participants);
-      widget.onSaved?.call(serverItem);
+      final resolvedParticipants =
+          serverItem.participants.isNotEmpty
+              ? serverItem.participants
+              : rebuiltParticipants;
+      final resolvedItem = serverItem.copyWith(
+        participants: resolvedParticipants,
+        participantsCount: resolvedParticipants.length,
+        participantsSum: _sumParticipants(resolvedParticipants),
+      );
+      _switchToView(updated: resolvedItem);
+      _syncAmountControllers(resolvedParticipants);
+      widget.onSaved?.call(resolvedItem);
       AppToast.show(context, '저장되었습니다.');
     } catch (error) {
       if (!mounted) return;
