@@ -160,14 +160,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
               actions: [
                 CupertinoDialogAction(
-                  child: const Text("취소"),
+                  child: const Text("취소", style: TextStyle(fontSize: 14)),
                   onPressed: () {
                     timer?.cancel();
                     Navigator.of(context).pop();
                   },
                 ),
                 CupertinoDialogAction(
-                  child: const Text("확인"),
+                  isDestructiveAction: true,
                   onPressed: () async {
                     timer?.cancel();
                     Navigator.of(context).pop();
@@ -183,6 +183,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       );
                     }
                   },
+                  child: const Text("확인", style: TextStyle(fontSize: 14)),
                 ),
               ],
             );

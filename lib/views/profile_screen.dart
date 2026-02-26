@@ -25,7 +25,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       context: context,
       builder:
           (context) => CupertinoAlertDialog(
-            title: const Text("정말 로그아웃하시겠어요?", style: TextStyle(fontSize: 14)),
+            title: const Text("정말 로그아웃 하시겠어요?", style: TextStyle(fontSize: 14)),
             actions: [
               CupertinoDialogAction(
                 onPressed: () => context.pop(),

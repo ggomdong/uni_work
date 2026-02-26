@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,7 +66,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   bool _deleting = false;
   bool _saving = false;
   bool _autoDistribute = true;
-  final Map<int, TextEditingController> _amountControllers = {};
+  late final ParticipantAmountControllerManager _participantAmountManager;
 
   late TextEditingController _usedDateController;
   late TextEditingController _approvalController;
@@ -91,8 +92,9 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     _amountController = TextEditingController(
       text: _item.totalAmount == 0 ? '' : _item.totalAmount.toString(),
     );
+    _participantAmountManager = ParticipantAmountControllerManager();
     _amountController.addListener(_handleTotalAmountChange);
-    _syncAmountControllers(_item.participants);
+    _participantAmountManager.syncFromParticipants(_item.participants);
   }
 
   @override
@@ -101,9 +103,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     _approvalController.dispose();
     _merchantController.dispose();
     _amountController.dispose();
-    for (final controller in _amountControllers.values) {
-      controller.dispose();
-    }
+    _participantAmountManager.disposeAll();
     super.dispose();
   }
 
@@ -143,7 +143,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   void _switchToEdit() {
     _syncControllersFromItem(_item);
     setState(() {
-      _syncAmountControllers(_item.participants);
+      _participantAmountManager.syncFromParticipants(_item.participants);
       _mode = MealClaimSheetMode.edit;
     });
   }
@@ -232,7 +232,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     if (mounted) {
       setState(() {
         _item = detail;
-        _syncAmountControllers(_item.participants);
+        _participantAmountManager.syncFromParticipants(_item.participants);
       });
     }
 
@@ -355,7 +355,9 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
                           participantsSum: _sumParticipants(redistributed),
                         );
                       });
-                      _syncAmountControllers(redistributed);
+                      _participantAmountManager.syncFromParticipants(
+                        redistributed,
+                      );
                       return;
                     }
                     setState(() => _autoDistribute = next);
@@ -368,7 +370,8 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
         Gaps.v8,
         _ParticipantsEditor(
           participants: participants,
-          ensureController: _ensureAmountController,
+          ensureController:
+              (p) => _participantAmountManager.controllerFor(p.userId),
           onAdd: _onPickParticipants,
           onRemove: _removeParticipant,
           onAmountChanged: _onParticipantAmountChanged,
@@ -390,11 +393,9 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   // 저장 직전에 컨트롤러 텍스트를 기준으로 participants.amount를 확정한다.
   // (IME/포커스 타이밍 이슈로 onChanged가 마지막 입력을 state에 반영하기 전에 저장될 수 있음)
   List<MealParticipant> _participantsFromControllers() {
-    return _item.participants.map((p) {
-      final c = _amountControllers[p.userId];
-      final n = int.tryParse((c?.text ?? '').trim()) ?? 0;
-      return p.copyWith(amount: n);
-    }).toList();
+    return _participantAmountManager.applyControllersToParticipants(
+      _item.participants,
+    );
   }
 
   List<MealParticipant> _distributeEvenly(
@@ -412,28 +413,6 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     });
   }
 
-  void _syncAmountControllers(List<MealParticipant> participants) {
-    final ids = participants.map((p) => p.userId).toSet();
-    final removeIds =
-        _amountControllers.keys.where((id) => !ids.contains(id)).toList();
-    for (final id in removeIds) {
-      _amountControllers[id]?.dispose();
-      _amountControllers.remove(id);
-    }
-    for (final p in participants) {
-      final nextText = p.amount.toString();
-      final controller = _amountControllers[p.userId];
-      if (controller == null) {
-        _amountControllers[p.userId] = TextEditingController(text: nextText);
-        continue;
-      }
-      // "프로그램이 amount를 바꾼 직후"에만 이 함수가 호출된다는 전제.
-      // 사용자가 입력 중일 때 build에서 text를 덮어쓰면 커서 튐이 생길 수 있으니
-      // 동기화는 이 함수에서만, 필요한 순간에만 수행한다.
-      if (controller.text != nextText) controller.text = nextText;
-    }
-  }
-
   void _handleTotalAmountChange() {
     final total = _currentTotalAmount();
     if (_autoDistribute && _item.participants.isNotEmpty) {
@@ -446,7 +425,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
           participantsSum: _sumParticipants(next),
         );
       });
-      _syncAmountControllers(next);
+      _participantAmountManager.syncFromParticipants(next);
       return;
     }
 
@@ -516,7 +495,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
           participantsSum: _sumParticipants(next),
         );
       });
-      _syncAmountControllers(next);
+      _participantAmountManager.syncFromParticipants(next);
     } catch (error) {
       if (!mounted) return;
       AppToast.show(
@@ -538,7 +517,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
         participantsSum: _sumParticipants(updated),
       );
     });
-    _syncAmountControllers(updated);
+    _participantAmountManager.syncFromParticipants(updated);
   }
 
   void _onParticipantAmountChanged(int userId, String value) {
@@ -568,13 +547,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
         participantsSum: _sumParticipants(next),
       );
     });
-    _syncAmountControllers(next);
-  }
-
-  TextEditingController _ensureAmountController(MealParticipant p) {
-    return _amountControllers[p.userId] ??= TextEditingController(
-      text: p.amount.toString(),
-    );
+    _participantAmountManager.syncFromParticipants(next);
   }
 
   Future<void> _onSave() async {
@@ -658,7 +631,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
         participantsSum: _sumParticipants(resolvedParticipants),
       );
       _switchToView(updated: resolvedItem);
-      _syncAmountControllers(resolvedParticipants);
+      _participantAmountManager.syncFromParticipants(resolvedParticipants);
       widget.onSaved?.call(resolvedItem);
       AppToast.show(context, '저장되었습니다.');
     } catch (error) {
@@ -683,26 +656,26 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
 
   Future<void> _confirmDelete() async {
     if (_isNew || !_item.canDelete || _deleting) return;
-    final result = await showDialog<bool>(
+    final result = await showCupertinoDialog<bool>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('삭제 확인'),
-          content: const Text('이 내역을 삭제하시겠습니까?'),
+        return CupertinoAlertDialog(
+          title: const Text('삭제할까요?'),
+          content: const Text('이 사용내역을 삭제하면 되돌릴 수 없습니다.'),
           actions: [
-            TextButton(
+            CupertinoDialogAction(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('아니오'),
+              child: const Text('취소', style: TextStyle(fontSize: 14)),
             ),
-            TextButton(
+            CupertinoDialogAction(
+              isDestructiveAction: true,
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('삭제'),
+              child: const Text('삭제', style: TextStyle(fontSize: 14)),
             ),
           ],
         );
       },
     );
-
     if (result == true) {
       setState(() => _deleting = true);
       try {
@@ -1133,5 +1106,60 @@ class _ViewActions extends StatelessWidget {
           ),
       ],
     );
+  }
+}
+
+class ParticipantAmountControllerManager {
+  final Map<int, TextEditingController> _controllers = {};
+
+  TextEditingController controllerFor(int userId, {String? initialText}) {
+    final controller = _controllers[userId];
+    if (controller != null) return controller;
+    final created = TextEditingController(text: initialText ?? '');
+    _controllers[userId] = created;
+    return created;
+  }
+
+  void syncFromParticipants(List<MealParticipant> participants) {
+    disposeMissing(participants);
+    for (final p in participants) {
+      final nextText = p.amount.toString();
+      final controller = _controllers[p.userId];
+      if (controller == null) {
+        _controllers[p.userId] = TextEditingController(text: nextText);
+        continue;
+      }
+      // "프로그램이 amount를 바꾼 직후"에만 이 함수가 호출된다는 전제.
+      // 사용자가 입력 중일 때 build에서 text를 덮어쓰면 커서 튐이 생길 수 있으니
+      // 동기화는 이 함수에서만, 필요한 순간에만 수행한다.
+      if (controller.text != nextText) controller.text = nextText;
+    }
+  }
+
+  List<MealParticipant> applyControllersToParticipants(
+    List<MealParticipant> participants,
+  ) {
+    return participants.map((p) {
+      final controller = _controllers[p.userId];
+      final n = int.tryParse((controller?.text ?? '').trim()) ?? 0;
+      return p.copyWith(amount: n);
+    }).toList();
+  }
+
+  void disposeMissing(List<MealParticipant> participants) {
+    final ids = participants.map((p) => p.userId).toSet();
+    final removeIds =
+        _controllers.keys.where((id) => !ids.contains(id)).toList();
+    for (final id in removeIds) {
+      _controllers[id]?.dispose();
+      _controllers.remove(id);
+    }
+  }
+
+  void disposeAll() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    _controllers.clear();
   }
 }
