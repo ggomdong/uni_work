@@ -65,7 +65,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   Future<MealClaimItem>? _detailFuture;
   bool _deleting = false;
   bool _saving = false;
-  bool _autoDistribute = true;
+  bool _autoDistribute = false;
   late final ParticipantAmountControllerManager _participantAmountManager;
 
   late TextEditingController _usedDateController;
@@ -82,7 +82,6 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     if (!_isNew && _item.id != 0) {
       _detailFuture = _fetchDetail();
     }
-    _autoDistribute = _isNew;
 
     _usedDateController = TextEditingController(
       text: DateFormat('yyyy-MM-dd').format(_item.usedDate),
