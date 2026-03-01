@@ -330,8 +330,7 @@ class _MealParticipantPickerSheetState
                         ),
                       );
                     },
-                    separatorBuilder:
-                        (_, __) => const SizedBox(height: Sizes.size8),
+                    separatorBuilder: (_, __) => Gaps.v8,
                     itemCount: groups.length + 1,
                   ),
                 ),

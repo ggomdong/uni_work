@@ -66,6 +66,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   bool _deleting = false;
   bool _saving = false;
   bool _autoDistribute = false;
+  int? _editingUserId;
   late final ParticipantAmountControllerManager _participantAmountManager;
 
   late TextEditingController _usedDateController;
@@ -143,6 +144,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     _syncControllersFromItem(_item);
     setState(() {
       _participantAmountManager.syncFromParticipants(_item.participants);
+      _editingUserId = null;
       _mode = MealClaimSheetMode.edit;
     });
   }
@@ -154,6 +156,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
         _detailFuture = Future.value(updated);
       }
       _mode = MealClaimSheetMode.view;
+      _editingUserId = null;
       _isNew = false;
     });
   }
@@ -290,7 +293,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '대상자 분배',
+            '대상자',
             style: Theme.of(
               context,
             ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
@@ -315,67 +318,143 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '대상자',
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
+        Builder(
+          builder: (context) {
+            final theme = Theme.of(context);
+            final sum = _sumParticipants(participants);
+            final total = _currentTotalAmount();
+            final sumColor = sum == total ? Colors.black54 : Colors.redAccent;
+
+            return Column(
               children: [
-                Text(
-                  '균등분배',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                Gaps.h6,
-                Switch(
-                  value: _autoDistribute,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  onChanged: (next) {
-                    if (next == _autoDistribute) return;
-                    if (next && _item.participants.isNotEmpty) {
-                      final total = _currentTotalAmount();
-                      final redistributed = _distributeEvenly(
-                        _item.participants,
-                        total,
-                      );
-                      setState(() {
-                        _autoDistribute = true;
-                        _item = _item.copyWith(
-                          totalAmount: total,
-                          participants: redistributed,
-                          participantsCount: redistributed.length,
-                          participantsSum: _sumParticipants(redistributed),
-                        );
-                      });
-                      _participantAmountManager.syncFromParticipants(
-                        redistributed,
-                      );
-                      return;
-                    }
-                    setState(() => _autoDistribute = next);
-                  },
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Row(
+                        children: [
+                          Text(
+                            '대상자',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: '대상자 추가',
+                            onPressed: _onPickParticipants,
+                            icon: const Icon(Icons.person_add_alt_1, size: 18),
+                            style: IconButton.styleFrom(
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.primary,
+                            ),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: SegmentedButton<bool>(
+                          segments: const [
+                            ButtonSegment(value: false, label: Text('수동')),
+                            ButtonSegment(value: true, label: Text('균등')),
+                          ],
+                          style: ButtonStyle(
+                            visualDensity: VisualDensity.compact,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: WidgetStateProperty.all(
+                              const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 6,
+                              ),
+                            ),
+                            minimumSize: WidgetStateProperty.all(
+                              const Size(0, 32),
+                            ),
+                            textStyle: WidgetStateProperty.all(
+                              theme.textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            shape: WidgetStateProperty.all(
+                              RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                          selected: {_autoDistribute},
+                          showSelectedIcon: false,
+                          onSelectionChanged: (set) {
+                            final next = set.first;
+                            if (next == _autoDistribute) return;
+
+                            if (next && _item.participants.isNotEmpty) {
+                              final total = _currentTotalAmount();
+                              final redistributed = _distributeEvenly(
+                                _item.participants,
+                                total,
+                              );
+                              setState(() {
+                                _autoDistribute = true;
+                                _item = _item.copyWith(
+                                  totalAmount: total,
+                                  participants: redistributed,
+                                  participantsCount: redistributed.length,
+                                  participantsSum: _sumParticipants(
+                                    redistributed,
+                                  ),
+                                );
+                              });
+                              _participantAmountManager.syncFromParticipants(
+                                redistributed,
+                              );
+                              return;
+                            }
+
+                            setState(() => _autoDistribute = next);
+                          },
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${formatMealAmount(sum)}원 / ${formatMealAmount(total)}원',
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: sumColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ],
+            );
+          },
         ),
         Gaps.v8,
         _ParticipantsEditor(
           participants: participants,
+          onRemove: _removeParticipant,
+          onSelectEditingUser: _selectEditingUser,
+          onStopEditingUser: _stopEditingUser,
+          editingUserId: _editingUserId,
           ensureController:
               (p) => _participantAmountManager.controllerFor(p.userId),
-          onAdd: _onPickParticipants,
-          onRemove: _removeParticipant,
           onAmountChanged: _onParticipantAmountChanged,
-          participantsSum: _sumParticipants(participants),
-          totalAmount: _currentTotalAmount(),
         ),
       ],
     );
@@ -493,6 +572,10 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
           participantsCount: next.length,
           participantsSum: _sumParticipants(next),
         );
+        if (_editingUserId != null &&
+            !next.any((p) => p.userId == _editingUserId)) {
+          _editingUserId = null;
+        }
       });
       _participantAmountManager.syncFromParticipants(next);
     } catch (error) {
@@ -515,6 +598,9 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
         participantsCount: updated.length,
         participantsSum: _sumParticipants(updated),
       );
+      if (_editingUserId == userId) {
+        _editingUserId = null;
+      }
     });
     _participantAmountManager.syncFromParticipants(updated);
   }
@@ -547,6 +633,34 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
       );
     });
     _participantAmountManager.syncFromParticipants(next);
+  }
+
+  void _selectEditingUser(int userId) {
+    if (_editingUserId == userId) {
+      setState(() {
+        _editingUserId = null;
+      });
+      return;
+    }
+    final controller = _participantAmountManager.controllerFor(userId);
+    setState(() {
+      _editingUserId = userId;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final len = controller.text.length;
+      if (len == 0) return;
+      // 탭 시 금액 전체 선택 -> 바로 숫자 입력하면 덮어쓰기
+      controller.selection = TextSelection(baseOffset: 0, extentOffset: len);
+    });
+  }
+
+  void _stopEditingUser(int userId) {
+    if (_editingUserId != userId) return;
+    setState(() {
+      _editingUserId = null;
+    });
   }
 
   Future<void> _onSave() async {
@@ -840,8 +954,6 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
                   ),
                 ),
 
-              Gaps.v24,
-
               // 하단 액션
               if (!_isEdit)
                 _ViewActions(
@@ -926,37 +1038,33 @@ class _ViewContent extends StatelessWidget {
 class _ParticipantsEditor extends StatelessWidget {
   final List<MealParticipant> participants;
   final TextEditingController Function(MealParticipant p) ensureController;
-  final VoidCallback onAdd;
-  final ValueChanged<int> onRemove;
   final void Function(int userId, String value) onAmountChanged;
-  final int participantsSum;
-  final int totalAmount;
+  final ValueChanged<int> onRemove;
+  final ValueChanged<int> onSelectEditingUser;
+  final ValueChanged<int> onStopEditingUser;
+  final int? editingUserId;
 
   const _ParticipantsEditor({
     required this.participants,
     required this.ensureController,
-    required this.onAdd,
-    required this.onRemove,
     required this.onAmountChanged,
-    required this.participantsSum,
-    required this.totalAmount,
+    required this.onRemove,
+    required this.onSelectEditingUser,
+    required this.onStopEditingUser,
+    required this.editingUserId,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      padding: const EdgeInsets.all(Sizes.size12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
-      ),
-      child: Column(
-        children: [
-          if (participants.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: Sizes.size8),
+    final gridSpacing = Sizes.size5;
+    return Column(
+      children: [
+        if (participants.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: Sizes.size8),
+            child: Center(
               child: Text(
                 '대상자를 추가해주세요.',
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -964,64 +1072,147 @@ class _ParticipantsEditor extends StatelessWidget {
                 ),
               ),
             ),
-          for (final p in participants) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    p.name,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-                SizedBox(
-                  width: 90,
-                  child: TextField(
-                    controller: ensureController(p),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    textAlign: TextAlign.right,
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      suffixText: '원',
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 8,
-                      ),
-                    ),
-                    onChanged: (value) => onAmountChanged(p.userId, value),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => onRemove(p.userId),
-                  icon: const Icon(Icons.close),
-                  tooltip: '삭제',
-                ),
-              ],
-            ),
-            Gaps.v8,
-          ],
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              TextButton.icon(
-                onPressed: onAdd,
-                icon: const Icon(Icons.person_add_alt_1, size: 18),
-                label: const Text('대상자 추가'),
-              ),
-              Text(
-                '${formatMealAmount(participantsSum)}원 / ${formatMealAmount(totalAmount)}원',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color:
-                      participantsSum == totalAmount
-                          ? Colors.black54
-                          : Colors.redAccent,
-                ),
-              ),
-            ],
           ),
-        ],
-      ),
+        if (participants.isNotEmpty)
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: gridSpacing,
+              mainAxisSpacing: gridSpacing,
+              childAspectRatio: 4,
+            ),
+            itemCount: participants.length,
+            itemBuilder: (context, index) {
+              final p = participants[index];
+              final isSelected = editingUserId == p.userId;
+              final amountText = '${formatMealAmount(p.amount)}원';
+              const double amountBoxW = 70;
+              const double amountBoxH = 32;
+              return Container(
+                // 오른쪽 padding을 줄여서 X 뒤 여백을 줄임
+                padding: const EdgeInsets.only(
+                  left: 10,
+                  right: 1,
+                  top: 6,
+                  bottom: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.06),
+                  ),
+                ),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => onSelectEditingUser(p.userId),
+                  // 포커스/탭 시 회색 overlay(잉크) 방지
+                  overlayColor: WidgetStateProperty.all(Colors.transparent),
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          p.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      // 금액 박스: 보기/편집 동일 크기, 금액 영역만 탭 가능
+                      SizedBox(
+                        width: amountBoxW,
+                        height: amountBoxH,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => onSelectEditingUser(p.userId),
+                          child: AnimatedContainer(
+                            key: ValueKey('amt-${p.userId}'),
+                            duration: const Duration(milliseconds: 120),
+                            curve: Curves.easeOut,
+                            alignment: Alignment.centerRight,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10),
+                              // 여기 색은 “우리가 정한 그대로”만 보임 (포커스 state-layer 영향 X)
+                              color:
+                                  isSelected
+                                      ? theme.colorScheme.primary.withValues(
+                                        alpha: 0.08,
+                                      )
+                                      : Colors.transparent,
+                              border: Border.all(
+                                color:
+                                    isSelected
+                                        ? theme.colorScheme.primary
+                                        : Colors.transparent,
+                                width: 1.2,
+                              ),
+                            ),
+                            child:
+                                isSelected
+                                    ? Focus(
+                                      onFocusChange: (hasFocus) {
+                                        if (!hasFocus)
+                                          onStopEditingUser(p.userId);
+                                      },
+                                      child: TextField(
+                                        controller: ensureController(p),
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter
+                                              .digitsOnly,
+                                        ],
+                                        autofocus: true,
+                                        textAlign: TextAlign.right,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.black87,
+                                            ),
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          border: InputBorder.none,
+                                          contentPadding: EdgeInsets.zero,
+                                        ),
+                                        onChanged:
+                                            (v) => onAmountChanged(p.userId, v),
+                                        onSubmitted:
+                                            (_) => onStopEditingUser(p.userId),
+                                      ),
+                                    )
+                                    : Text(
+                                      amountText,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.black87,
+                                          ),
+                                    ),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => onRemove(p.userId),
+                        icon: const Icon(Icons.close, size: 12),
+                        tooltip: '삭제',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
     );
   }
 }
