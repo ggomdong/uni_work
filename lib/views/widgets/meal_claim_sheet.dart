@@ -78,6 +78,8 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   // 총액 입력/표기 시 콤마 포맷을 위한 코드
   late final FocusNode _totalAmountFocusNode;
   int _parseMoney(String s) => int.tryParse(s.replaceAll(',', '').trim()) ?? 0;
+  String _formatTotalAmountText(int amount) =>
+      amount <= 0 ? '' : formatMealAmount(amount);
 
   late TextEditingController _usedDateController;
   late TextEditingController _approvalController;
@@ -100,8 +102,10 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     _approvalController = TextEditingController(text: _item.approvalNo);
     _merchantController = TextEditingController(text: _item.merchantName);
     _amountController = TextEditingController(
-      text: _item.totalAmount == 0 ? '' : _item.totalAmount.toString(),
+      text: _formatTotalAmountText(_item.totalAmount),
     );
+    _totalAmountFocusNode = FocusNode();
+    _totalAmountFocusNode.addListener(_onTotalAmountFocusChanged);
     _participantAmountManager = ParticipantAmountControllerManager();
     _amountController.addListener(_handleTotalAmountChange);
     _participantAmountManager.syncFromParticipants(_item.participants);
@@ -113,6 +117,9 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     _approvalController.dispose();
     _merchantController.dispose();
     _amountController.dispose();
+    _totalAmountFocusNode
+      ..removeListener(_onTotalAmountFocusChanged)
+      ..dispose();
     _participantAmountManager.disposeAll();
 
     for (final n in _participantFocusNodes.values) {
@@ -173,8 +180,33 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     _usedDateController.text = DateFormat('yyyy-MM-dd').format(item.usedDate);
     _approvalController.text = item.approvalNo;
     _merchantController.text = item.merchantName;
-    _amountController.text =
-        item.totalAmount == 0 ? '' : item.totalAmount.toString();
+    _amountController.text = _formatTotalAmountText(item.totalAmount);
+  }
+
+  void _onTotalAmountFocusChanged() {
+    final currentText = _amountController.text;
+    if (_totalAmountFocusNode.hasFocus) {
+      final unformatted = currentText.replaceAll(',', '');
+      if (currentText != unformatted) {
+        _amountController.value = _amountController.value.copyWith(
+          text: unformatted,
+          selection: TextSelection.collapsed(offset: unformatted.length),
+          composing: TextRange.empty,
+        );
+      }
+      return;
+    }
+
+    final formatted = _formatTotalAmountText(_parseMoney(currentText));
+    if (currentText != formatted) {
+      _amountController.value = _amountController.value.copyWith(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+        composing: TextRange.empty,
+      );
+    }
+
+    _handleTotalAmountChange();
   }
 
   void _switchToEdit() {
@@ -244,7 +276,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     final usedDate =
         DateTime.tryParse(_usedDateController.text.trim()) ?? _item.usedDate;
 
-    final total = int.tryParse(_amountController.text.trim()) ?? 0;
+    final total = _parseMoney(_amountController.text);
     final ym = '${usedDate.year}${usedDate.month.toString().padLeft(2, '0')}';
 
     final baseParticipants = _item.participants;
@@ -501,7 +533,15 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   }
 
   int _currentTotalAmount() {
-    return int.tryParse(_amountController.text.trim()) ?? _item.totalAmount;
+    final raw = _amountController.text.trim();
+    // 사용자가 지워서 빈값이면 0 (fallback 금지)
+    if (raw.isEmpty) return 0;
+
+    final parsed = _parseMoney(raw);
+    // "수정 모드에서 입력이 0이 되는 케이스"에만 fallback
+    // (신규 입력은 _isNew=true라서 fallback 안 됨)
+    if (!_isNew && parsed == 0) return _item.totalAmount;
+    return parsed;
   }
 
   int _sumParticipants(List<MealParticipant> participants) {
@@ -1000,15 +1040,15 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
 
                         TextFormField(
                           controller: _amountController,
+                          focusNode: _totalAmountFocusNode,
                           keyboardType: TextInputType.number,
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
                           ],
                           decoration: _decoration('총액', hint: '숫자만 입력'),
                           validator: (v) {
-                            final t = (v ?? '').trim();
-                            final n = int.tryParse(t);
-                            if (n == null || n <= 0) {
+                            final n = _parseMoney(v ?? '');
+                            if (n <= 0) {
                               return '총액을 입력해주세요.';
                             }
                             return null;
