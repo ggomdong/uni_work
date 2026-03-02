@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../app_refresh_service.dart';
 import '../constants/gaps.dart';
 import '../constants/sizes.dart';
 import '../utils.dart';
@@ -12,7 +15,6 @@ import './widgets/meal_my_claim_list.dart';
 import './widgets/meal_claim_sheet.dart';
 import './widgets/meal_types.dart';
 import '../view_models/meal_items_view_model.dart';
-import '../view_models/meal_summary_view_model.dart';
 
 class MealScreen extends ConsumerStatefulWidget {
   const MealScreen({super.key});
@@ -23,7 +25,7 @@ class MealScreen extends ConsumerStatefulWidget {
 
 class _MealScreenState extends ConsumerState<MealScreen> {
   late String _yearMonth;
-  int _refreshTick = 0;
+  final int _refreshTick = 0;
   int _selectedIndex = 0;
   bool _sortDesc = true;
 
@@ -74,22 +76,28 @@ class _MealScreenState extends ConsumerState<MealScreen> {
     });
   }
 
-  void _onRefresh() {
-    _refreshAll(ym: _yearMonth);
-    setState(() {
-      _refreshTick++;
-    });
+  Future<void> _onRefresh() async {
+    await _refreshAll(ym: _yearMonth);
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('새로고침 완료 ($_refreshTick)')));
+    ).showSnackBar(SnackBar(content: Text('식대 정보를 갱신했어요.')));
   }
 
-  void _refreshAll({required String ym}) {
-    final createdQuery = MealItemsQuery(ym: ym, type: MealItemsType.created);
-    final usedQuery = MealItemsQuery(ym: ym, type: MealItemsType.used);
-    ref.read(mealItemsProvider(createdQuery).notifier).refresh();
-    ref.read(mealItemsProvider(usedQuery).notifier).refresh();
-    ref.read(mealSummaryProvider(ym).notifier).refresh();
+  Future<void> _refreshAll({required String ym}) async {
+    final createdQuery = _mealQueryParam(ym: ym, type: MealItemsType.created);
+    final usedQuery = _mealQueryParam(ym: ym, type: MealItemsType.used);
+    final ymRecord = (
+      year: int.parse(ym.substring(0, 4)),
+      month: int.parse(ym.substring(4, 6)),
+    );
+    await ref
+        .read(appRefreshServiceProvider)
+        .refreshAll(ym: ymRecord, mealQueries: [createdQuery, usedQuery]);
+  }
+
+  String _mealQueryParam({required String ym, required MealItemsType type}) {
+    return '$ym|${type.name}';
   }
 
   void _openClaimSheet({
@@ -102,14 +110,18 @@ class _MealScreenState extends ConsumerState<MealScreen> {
       mode: mode,
       initial: item,
       onDeleted: (deleted) {
-        _refreshAll(ym: deleted.ym.isEmpty ? _yearMonth : deleted.ym);
+        unawaited(
+          _refreshAll(ym: deleted.ym.isEmpty ? _yearMonth : deleted.ym),
+        );
       },
       onSaved: (saved) {
         final newYm = saved.ym.isEmpty ? _yearMonth : saved.ym;
-        _refreshAll(ym: newYm);
-        if (oldYm != newYm) {
-          _refreshAll(ym: oldYm);
-        }
+        unawaited(
+          Future.wait([
+            _refreshAll(ym: newYm),
+            if (oldYm != newYm) _refreshAll(ym: oldYm),
+          ]),
+        );
       },
     );
   }

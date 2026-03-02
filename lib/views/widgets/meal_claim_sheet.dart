@@ -243,6 +243,28 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   /// =======================
   /// Dirty 체크(변경 여부)
   /// =======================
+  bool _isNewDraftDirty() {
+    // 신규 화면인데, 편집 시작 원본이 없을 때만 의미 있음
+    if (!_isNew) return false;
+
+    final usedDateText = _usedDateController.text.trim();
+    final approval = _approvalController.text.trim();
+    final merchant = _merchantController.text.trim();
+    final total = _parseMoney(_amountController.text);
+
+    // 대상자 금액은 컨트롤러 기준 확정(이미 함수 있음)
+    final participants = _participantsFromControllers();
+
+    // 신규 기본값(_buildNewItem)과 비교: "뭔가 썼다"의 기준을 넓게 잡음
+    final hasAnyText = approval.isNotEmpty || merchant.isNotEmpty || total > 0;
+
+    final hasParticipants = participants.isNotEmpty;
+
+    // 사용일은 기본으로 오늘이 들어가니 dirty 기준에서 제외하는 게 자연스러움
+    // (원하면 usedDate 변경까지 포함해도 됨)
+    return hasAnyText || hasParticipants;
+  }
+
   MealClaimItem _buildDraftFromControllers() {
     final usedDate =
         DateTime.tryParse(_usedDateController.text.trim()) ?? _item.usedDate;
@@ -294,17 +316,19 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     );
   }
 
-  Future<bool> _confirmDiscardChanges() async {
+  Future<bool> _confirmDiscardChanges({required bool isNew}) async {
+    final title = isNew ? '입력 사항을 폐기할까요?' : '수정 사항을 폐기할까요?';
+    final keepLabel = isNew ? '계속 입력' : '계속 수정';
     final result = await showCupertinoDialog<bool>(
       context: context,
       builder: (context) {
         return CupertinoAlertDialog(
-          title: const Text('수정 사항을 폐기할까요?'),
+          title: Text(title),
           content: const Text('변경한 내용이 저장되지 않습니다.'),
           actions: [
             CupertinoDialogAction(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('계속 수정', style: TextStyle(fontSize: 14)),
+              child: Text(keepLabel, style: TextStyle(fontSize: 14)),
             ),
             CupertinoDialogAction(
               isDestructiveAction: true,
@@ -320,8 +344,9 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
 
   Future<void> _onCancelPressed() async {
     if (!_isEdit) return;
-    if (_isDirty()) {
-      final ok = await _confirmDiscardChanges();
+    final dirty = _isDirty() || _isNewDraftDirty();
+    if (dirty) {
+      final ok = await _confirmDiscardChanges(isNew: _isNew);
       if (!ok) return;
     }
     _onCancel();
@@ -1226,8 +1251,12 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
                       Gaps.h12,
                       Expanded(
                         child: FilledButton(
-                          // 변경이 없으면 저장 비활성화 (비용 거의 없음)
-                          onPressed: (_saving || !_isDirty()) ? null : _onSave,
+                          // 신규 입력(_isNew)에서는 dirty 체크로 막지 않는다.
+                          // 수정 모드에서만 "변경 없음"이면 저장 비활성화
+                          onPressed:
+                              (_saving || (!_isNew && !_isDirty()))
+                                  ? null
+                                  : _onSave,
                           child: const Text(
                             '저장',
                             style: TextStyle(fontWeight: FontWeight.bold),
