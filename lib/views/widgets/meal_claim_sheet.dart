@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -83,6 +84,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   int _parseMoney(String s) => int.tryParse(s.replaceAll(',', '').trim()) ?? 0;
   String _formatTotalAmountText(int amount) =>
       amount <= 0 ? '' : formatMealAmount(amount);
+  bool get _hasEditOrigin => _editOrigin != null;
 
   late TextEditingController _usedDateController;
   late TextEditingController _approvalController;
@@ -217,6 +219,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     _editOrigin = _item;
     _syncControllersFromItem(_item);
     setState(() {
+      _autoDistribute = false;
       _participantAmountManager.syncFromParticipants(_item.participants);
       _editingUserId = null;
       _mode = MealClaimSheetMode.edit;
@@ -233,7 +236,95 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
       _editingUserId = null;
       _isNew = false;
       _editOrigin = null; // 저장/전환 완료 시 스냅샷 해제
+      _autoDistribute = false;
     });
+  }
+
+  /// =======================
+  /// Dirty 체크(변경 여부)
+  /// =======================
+  MealClaimItem _buildDraftFromControllers() {
+    final usedDate =
+        DateTime.tryParse(_usedDateController.text.trim()) ?? _item.usedDate;
+    final total = _parseMoney(_amountController.text);
+    final ym = '${usedDate.year}${usedDate.month.toString().padLeft(2, '0')}';
+
+    final rebuiltParticipants = _participantsFromControllers();
+    final participantsSum = _sumParticipants(rebuiltParticipants);
+
+    return _item.copyWith(
+      ym: ym,
+      usedDate: usedDate,
+      approvalNo: _approvalController.text.trim(),
+      merchantName: _merchantController.text.trim(),
+      totalAmount: total,
+      participants: rebuiltParticipants,
+      participantsCount: rebuiltParticipants.length,
+      participantsSum: participantsSum,
+    );
+  }
+
+  List<String> _participantsSignature(List<MealParticipant> ps) {
+    // userId+amount 기준으로 정렬/서명 생성 (순서 차이 무시)
+    final items = ps
+      .map((p) => '${p.userId}:${p.amount}')
+      .toList(growable: false)..sort();
+    return items;
+  }
+
+  bool _isDirty() {
+    if (!_isEdit) return false;
+    final origin = _editOrigin;
+    if (origin == null) return false;
+
+    final draft = _buildDraftFromControllers();
+
+    // 기본 필드 비교
+    final sameBasic =
+        origin.usedDate == draft.usedDate &&
+        origin.approvalNo.trim() == draft.approvalNo.trim() &&
+        origin.merchantName.trim() == draft.merchantName.trim() &&
+        origin.totalAmount == draft.totalAmount;
+    if (!sameBasic) return true;
+
+    // 대상자( userId + amount ) 비교
+    return !listEquals(
+      _participantsSignature(origin.participants),
+      _participantsSignature(draft.participants),
+    );
+  }
+
+  Future<bool> _confirmDiscardChanges() async {
+    final result = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) {
+        return CupertinoAlertDialog(
+          title: const Text('수정 사항을 폐기할까요?'),
+          content: const Text('변경한 내용이 저장되지 않습니다.'),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('계속 수정', style: TextStyle(fontSize: 14)),
+            ),
+            CupertinoDialogAction(
+              isDestructiveAction: true,
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('폐기', style: TextStyle(fontSize: 14)),
+            ),
+          ],
+        );
+      },
+    );
+    return result == true;
+  }
+
+  Future<void> _onCancelPressed() async {
+    if (!_isEdit) return;
+    if (_isDirty()) {
+      final ok = await _confirmDiscardChanges();
+      if (!ok) return;
+    }
+    _onCancel();
   }
 
   // 로그인 폼 톤과 맞춘 Decoration
@@ -376,16 +467,42 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
             ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
           ),
           Gaps.v8,
-          ...participants.map(
-            (p) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: Sizes.size4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(p.name),
-                  Text('${formatMealAmount(p.amount)}원'),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+              color: Colors.black.withValues(alpha: 0.02),
+            ),
+            child: Column(
+              children: [
+                for (int i = 0; i < participants.length; i++) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Sizes.size12,
+                      vertical: Sizes.size10,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            participants[i].name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text('${formatMealAmount(participants[i].amount)}원'),
+                      ],
+                    ),
+                  ),
+                  if (i != participants.length - 1)
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Colors.black.withValues(alpha: 0.06),
+                    ),
                 ],
-              ),
+              ],
             ),
           ),
         ],
@@ -879,6 +996,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
         _editingUserId = null;
         _isNew = false;
         _editOrigin = null;
+        _autoDistribute = false;
       });
       // 컨트롤러/대상자 금액 컨트롤러도 원본 기준으로 동기화
       _syncControllersFromItem(_item);
@@ -1098,7 +1216,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: _onCancel,
+                          onPressed: _onCancelPressed,
                           child: const Text(
                             '취소',
                             style: TextStyle(fontWeight: FontWeight.bold),
@@ -1108,7 +1226,8 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
                       Gaps.h12,
                       Expanded(
                         child: FilledButton(
-                          onPressed: _saving ? null : _onSave,
+                          // 변경이 없으면 저장 비활성화 (비용 거의 없음)
+                          onPressed: (_saving || !_isDirty()) ? null : _onSave,
                           child: const Text(
                             '저장',
                             style: TextStyle(fontWeight: FontWeight.bold),
