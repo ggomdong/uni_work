@@ -69,6 +69,9 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   int? _editingUserId;
   late final ParticipantAmountControllerManager _participantAmountManager;
 
+  // 편집 시작 시점의 원본 스냅샷(취소 시 원복용)
+  MealClaimItem? _editOrigin;
+
   // 대상자 금액 선택 시 포커스를 위한 코드
   final Map<int, FocusNode> _participantFocusNodes = {};
 
@@ -210,6 +213,8 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   }
 
   void _switchToEdit() {
+    // 취소 시 원복할 수 있도록 "편집 시작 시점" 원본을 저장
+    _editOrigin = _item;
     _syncControllersFromItem(_item);
     setState(() {
       _participantAmountManager.syncFromParticipants(_item.participants);
@@ -227,6 +232,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
       _mode = MealClaimSheetMode.view;
       _editingUserId = null;
       _isNew = false;
+      _editOrigin = null; // 저장/전환 완료 시 스냅샷 해제
     });
   }
 
@@ -861,6 +867,22 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   void _onCancel() {
     if (_isNew) {
       Navigator.of(context).pop();
+      return;
+    }
+    // 취소 = 원복: 편집 시작 시점 원본으로 되돌린 뒤 view로 전환
+    final origin = _editOrigin;
+    if (origin != null) {
+      setState(() {
+        _item = origin;
+        _detailFuture = Future.value(origin); // view stale 방지
+        _mode = MealClaimSheetMode.view;
+        _editingUserId = null;
+        _isNew = false;
+        _editOrigin = null;
+      });
+      // 컨트롤러/대상자 금액 컨트롤러도 원본 기준으로 동기화
+      _syncControllersFromItem(_item);
+      _participantAmountManager.syncFromParticipants(_item.participants);
       return;
     }
     _switchToView();
