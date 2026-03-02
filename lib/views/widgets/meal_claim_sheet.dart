@@ -69,6 +69,16 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   int? _editingUserId;
   late final ParticipantAmountControllerManager _participantAmountManager;
 
+  // 대상자 금액 선택 시 포커스를 위한 코드
+  final Map<int, FocusNode> _participantFocusNodes = {};
+
+  FocusNode _focusNodeForParticipant(int userId) =>
+      _participantFocusNodes.putIfAbsent(userId, () => FocusNode());
+
+  // 총액 입력/표기 시 콤마 포맷을 위한 코드
+  late final FocusNode _totalAmountFocusNode;
+  int _parseMoney(String s) => int.tryParse(s.replaceAll(',', '').trim()) ?? 0;
+
   late TextEditingController _usedDateController;
   late TextEditingController _approvalController;
   late TextEditingController _merchantController;
@@ -104,10 +114,37 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     _merchantController.dispose();
     _amountController.dispose();
     _participantAmountManager.disposeAll();
+
+    for (final n in _participantFocusNodes.values) {
+      n.dispose();
+    }
+    _participantFocusNodes.clear();
+
     super.dispose();
   }
 
   bool get _isEdit => _mode == MealClaimSheetMode.edit;
+
+  // Keyboard 외의 영역 클릭시 Keyboard가 사라지도록 처리
+  void _onScaffoldTap() {
+    FocusScope.of(context).unfocus();
+  }
+
+  Future<T?> _openSheetWithFocusReset<T>(Future<T?> Function() open) async {
+    // FocusScope의 “마지막 포커스 기억”까지 끊음
+    FocusScope.of(context).unfocus(disposition: UnfocusDisposition.scope);
+
+    final result = await open();
+    if (!mounted) return result;
+
+    // pop 직후 자동 복원 타이밍을 한 프레임 뒤에 끊어줌
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      FocusScope.of(context).unfocus(disposition: UnfocusDisposition.scope);
+    });
+
+    return result;
+  }
 
   MealClaimItem _buildNewItem() {
     final now = DateTime.now();
@@ -188,12 +225,14 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     final initial =
         DateTime.tryParse(_usedDateController.text.trim()) ?? _item.usedDate;
 
-    final picked = await showMealDatePickerSheet(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(2020, 1, 1),
-      lastDate: DateTime(2100, 12, 31),
-    );
+    final picked = await _openSheetWithFocusReset<DateTime?>(() {
+      return showMealDatePickerSheet(
+        context: context,
+        initialDate: initial,
+        firstDate: DateTime(2020, 1, 1),
+        lastDate: DateTime(2100, 12, 31),
+      );
+    });
 
     if (picked != null) {
       _usedDateController.text = DateFormat('yyyy-MM-dd').format(picked);
@@ -454,6 +493,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
           editingUserId: _editingUserId,
           ensureController:
               (p) => _participantAmountManager.controllerFor(p.userId),
+          ensureFocusNode: (p) => _focusNodeForParticipant(p.userId),
           onAmountChanged: _onParticipantAmountChanged,
         ),
       ],
@@ -535,16 +575,18 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
           .read(mealRepoProvider)
           .getMealOptions(usedDate: usedDateText, ym: fallbackYm);
       if (!mounted) return;
-      final result = await showMealParticipantPickerSheet(
-        context: context,
-        users: options.users,
-        groups: options.groups,
-        selectedUserIds:
-            _item.participants
-                .map((p) => p.userId)
-                .where((id) => id > 0)
-                .toList(),
-      );
+      final result = await _openSheetWithFocusReset<List<MealOptionUser>?>(() {
+        return showMealParticipantPickerSheet(
+          context: context,
+          users: options.users,
+          groups: options.groups,
+          selectedUserIds:
+              _item.participants
+                  .map((p) => p.userId)
+                  .where((id) => id > 0)
+                  .toList(),
+        );
+      });
       if (!mounted || result == null) return;
 
       final existingAmounts = {
@@ -640,19 +682,36 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
       setState(() {
         _editingUserId = null;
       });
+      _participantFocusNodes[userId]?.unfocus();
       return;
     }
+
+    // 총액/승인번호 등 현재 포커스를 먼저 내려서 '첫 탭'이 먹게 만든다
+    FocusManager.instance.primaryFocus?.unfocus();
+
     final controller = _participantAmountManager.controllerFor(userId);
+    final node = _focusNodeForParticipant(userId);
+
     setState(() {
       _editingUserId = userId;
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final len = controller.text.length;
-      if (len == 0) return;
-      // 탭 시 금액 전체 선택 -> 바로 숫자 입력하면 덮어쓰기
-      controller.selection = TextSelection(baseOffset: 0, extentOffset: len);
+      // 포커스 강제 (autofocus에 의존하지 않음)
+      node.requestFocus();
+
+      // 포커스가 잡힌 다음 프레임에 전체선택 (focus가 selection을 덮어쓰는 걸 방지)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final len = controller.text.length;
+        if (len > 0) {
+          controller.selection = TextSelection(
+            baseOffset: 0,
+            extentOffset: len,
+          );
+        }
+      });
     });
   }
 
@@ -817,6 +876,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
       minChildSize: 0.60,
       maxChildSize: 0.92,
       builder: (context, controller) {
+        final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
         return Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -829,167 +889,176 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
               ),
             ],
           ),
-          child: ListView(
-            controller: controller,
-            padding: const EdgeInsets.all(Sizes.size20),
-            children: [
-              Center(
-                child: Container(
-                  width: 48,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
+          child: GestureDetector(
+            onTap: _onScaffoldTap,
+            child: ListView(
+              controller: controller,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(
+                Sizes.size20,
+                Sizes.size20,
+                Sizes.size20,
+                Sizes.size20 + bottomInset,
               ),
-              Gaps.v16,
-
-              // 헤더
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _isEdit ? (_isNew ? '식대 입력' : '식대 수정') : '식대 상세',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+              children: [
+                Center(
+                  child: Container(
+                    width: 48,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(999),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              Gaps.v12,
-
-              // 콘텐츠
-              if (!_isEdit)
-                _ViewContent(
-                  item: _item,
-                  participantsSection: _buildParticipantsSection(
-                    editable: false,
-                  ),
-                )
-              else
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      // 순서: 사용일 → 승인번호 → 가맹점명 → 총액
-                      GestureDetector(
-                        onTap: _pickUsedDate,
-                        child: AbsorbPointer(
-                          child: TextFormField(
-                            controller: _usedDateController,
-                            decoration: _decoration(
-                              '사용일',
-                              suffix: Icon(
-                                Icons.calendar_month,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            validator: (v) {
-                              final text = (v ?? '').trim();
-                              if (DateTime.tryParse(text) == null) {
-                                return '사용일을 선택해주세요.';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                      ),
-                      Gaps.v12,
-
-                      TextFormField(
-                        controller: _approvalController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(8),
-                        ],
-                        decoration: _decoration('승인번호(8자리)'),
-                        validator: (v) {
-                          final t = (v ?? '').trim();
-                          if (t.isEmpty) return '승인번호를 입력해주세요.';
-                          if (t.length != 8) return '승인번호는 8자리입니다.';
-                          return null;
-                        },
-                      ),
-                      Gaps.v12,
-
-                      TextFormField(
-                        controller: _merchantController,
-                        decoration: _decoration('가맹점명'),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) {
-                            return '가맹점명을 입력해주세요.';
-                          }
-                          return null;
-                        },
-                      ),
-                      Gaps.v12,
-
-                      TextFormField(
-                        controller: _amountController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        decoration: _decoration('총액', hint: '숫자만 입력'),
-                        validator: (v) {
-                          final t = (v ?? '').trim();
-                          final n = int.tryParse(t);
-                          if (n == null || n <= 0) {
-                            return '총액을 입력해주세요.';
-                          }
-                          return null;
-                        },
-                      ),
-
-                      Gaps.v20,
-
-                      _buildParticipantsSection(editable: true),
-                    ],
-                  ),
                 ),
+                Gaps.v16,
 
-              // 하단 액션
-              if (!_isEdit)
-                _ViewActions(
-                  canEdit: _item.canEdit,
-                  canDelete: !_isNew && _item.canDelete,
-                  deleting: _deleting,
-                  onEdit: _switchToEdit,
-                  onDelete: _confirmDelete,
-                )
-              else
+                // 헤더
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _onCancel,
-                        child: const Text(
-                          '취소',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                    Text(
+                      _isEdit ? (_isNew ? '식대 입력' : '식대 수정') : '식대 상세',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    Gaps.h12,
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: _saving ? null : _onSave,
-                        child: const Text(
-                          '저장',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
                     ),
                   ],
                 ),
+                Gaps.v12,
 
-              Gaps.v8,
-            ],
+                // 콘텐츠
+                if (!_isEdit)
+                  _ViewContent(
+                    item: _item,
+                    participantsSection: _buildParticipantsSection(
+                      editable: false,
+                    ),
+                  )
+                else
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        // 순서: 사용일 → 승인번호 → 가맹점명 → 총액
+                        GestureDetector(
+                          onTap: _pickUsedDate,
+                          child: AbsorbPointer(
+                            child: TextFormField(
+                              controller: _usedDateController,
+                              decoration: _decoration(
+                                '사용일',
+                                suffix: Icon(
+                                  Icons.calendar_month,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              validator: (v) {
+                                final text = (v ?? '').trim();
+                                if (DateTime.tryParse(text) == null) {
+                                  return '사용일을 선택해주세요.';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                        ),
+                        Gaps.v12,
+
+                        TextFormField(
+                          controller: _approvalController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(8),
+                          ],
+                          decoration: _decoration('승인번호(8자리)'),
+                          validator: (v) {
+                            final t = (v ?? '').trim();
+                            if (t.isEmpty) return '승인번호를 입력해주세요.';
+                            if (t.length != 8) return '승인번호는 8자리입니다.';
+                            return null;
+                          },
+                        ),
+                        Gaps.v12,
+
+                        TextFormField(
+                          controller: _merchantController,
+                          decoration: _decoration('가맹점명'),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return '가맹점명을 입력해주세요.';
+                            }
+                            return null;
+                          },
+                        ),
+                        Gaps.v12,
+
+                        TextFormField(
+                          controller: _amountController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration: _decoration('총액', hint: '숫자만 입력'),
+                          validator: (v) {
+                            final t = (v ?? '').trim();
+                            final n = int.tryParse(t);
+                            if (n == null || n <= 0) {
+                              return '총액을 입력해주세요.';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        Gaps.v20,
+
+                        _buildParticipantsSection(editable: true),
+                      ],
+                    ),
+                  ),
+
+                // 하단 액션
+                if (!_isEdit)
+                  _ViewActions(
+                    canEdit: _item.canEdit,
+                    canDelete: !_isNew && _item.canDelete,
+                    deleting: _deleting,
+                    onEdit: _switchToEdit,
+                    onDelete: _confirmDelete,
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _onCancel,
+                          child: const Text(
+                            '취소',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                      Gaps.h12,
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: _saving ? null : _onSave,
+                          child: const Text(
+                            '저장',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                Gaps.v8,
+              ],
+            ),
           ),
         );
       },
@@ -1038,6 +1107,7 @@ class _ViewContent extends StatelessWidget {
 class _ParticipantsEditor extends StatelessWidget {
   final List<MealParticipant> participants;
   final TextEditingController Function(MealParticipant p) ensureController;
+  final FocusNode Function(MealParticipant p) ensureFocusNode;
   final void Function(int userId, String value) onAmountChanged;
   final ValueChanged<int> onRemove;
   final ValueChanged<int> onSelectEditingUser;
@@ -1047,6 +1117,7 @@ class _ParticipantsEditor extends StatelessWidget {
   const _ParticipantsEditor({
     required this.participants,
     required this.ensureController,
+    required this.ensureFocusNode,
     required this.onAmountChanged,
     required this.onRemove,
     required this.onSelectEditingUser,
@@ -1063,7 +1134,10 @@ class _ParticipantsEditor extends StatelessWidget {
       children: [
         if (participants.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: Sizes.size8),
+            padding: const EdgeInsets.only(
+              top: Sizes.size8,
+              bottom: Sizes.size32, // 대상자 없을때는 하단 버튼과 간격 넓게
+            ),
             child: Center(
               child: Text(
                 '대상자를 추가해주세요.',
@@ -1152,35 +1226,84 @@ class _ParticipantsEditor extends StatelessWidget {
                             ),
                             child:
                                 isSelected
-                                    ? Focus(
-                                      onFocusChange: (hasFocus) {
-                                        if (!hasFocus)
-                                          onStopEditingUser(p.userId);
-                                      },
-                                      child: TextField(
-                                        controller: ensureController(p),
-                                        keyboardType: TextInputType.number,
-                                        inputFormatters: [
-                                          FilteringTextInputFormatter
-                                              .digitsOnly,
-                                        ],
-                                        autofocus: true,
-                                        textAlign: TextAlign.right,
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.black87,
+                                    ? Builder(
+                                      builder:
+                                          (fieldCtx) => Focus(
+                                            onFocusChange: (hasFocus) {
+                                              if (!hasFocus) {
+                                                onStopEditingUser(p.userId);
+                                              }
+                                              if (hasFocus) {
+                                                // 키보드에 가리기 전에 자동으로 스크롤 올림
+                                                WidgetsBinding.instance
+                                                    .addPostFrameCallback((_) {
+                                                      if (!fieldCtx.mounted) {
+                                                        return;
+                                                      }
+                                                      Scrollable.ensureVisible(
+                                                        fieldCtx,
+                                                        alignment:
+                                                            0.25, // 화면 위쪽 쪽에 오도록 (0~1)
+                                                        duration:
+                                                            const Duration(
+                                                              milliseconds: 180,
+                                                            ),
+                                                        curve: Curves.easeOut,
+                                                      );
+                                                    });
+                                              }
+                                            },
+                                            child: TextField(
+                                              controller: ensureController(p),
+                                              focusNode: ensureFocusNode(p),
+                                              keyboardType:
+                                                  TextInputType.number,
+                                              inputFormatters: [
+                                                FilteringTextInputFormatter
+                                                    .digitsOnly,
+                                              ],
+                                              autofocus: false,
+                                              textAlign: TextAlign.right,
+                                              // 키보드 위 여유(필수): ensureVisible과 함께 쓰면 안정적
+                                              scrollPadding: EdgeInsets.only(
+                                                bottom:
+                                                    MediaQuery.viewInsetsOf(
+                                                      fieldCtx,
+                                                    ).bottom +
+                                                    140,
+                                              ),
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Colors.black87,
+                                                  ),
+                                              decoration: const InputDecoration(
+                                                isDense: true,
+                                                border: InputBorder.none,
+                                                contentPadding: EdgeInsets.zero,
+                                              ),
+                                              onTap: () {
+                                                // 혹시라도 selection이 깨졌을 때(두번째 탭 등) 다시 전체선택
+                                                final c = ensureController(p);
+                                                final len = c.text.length;
+                                                if (len > 0) {
+                                                  c.selection = TextSelection(
+                                                    baseOffset: 0,
+                                                    extentOffset: len,
+                                                  );
+                                                }
+                                              },
+                                              onChanged:
+                                                  (v) => onAmountChanged(
+                                                    p.userId,
+                                                    v,
+                                                  ),
+                                              onSubmitted:
+                                                  (_) => onStopEditingUser(
+                                                    p.userId,
+                                                  ),
                                             ),
-                                        decoration: const InputDecoration(
-                                          isDense: true,
-                                          border: InputBorder.none,
-                                          contentPadding: EdgeInsets.zero,
-                                        ),
-                                        onChanged:
-                                            (v) => onAmountChanged(p.userId, v),
-                                        onSubmitted:
-                                            (_) => onStopEditingUser(p.userId),
-                                      ),
+                                          ),
                                     )
                                     : Text(
                                       amountText,

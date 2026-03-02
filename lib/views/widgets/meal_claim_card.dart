@@ -59,7 +59,7 @@ class MealClaimCard extends StatelessWidget {
                 Text(
                   '본인부담 ${formatMealAmount(item.myAmount)}원',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.black54,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ],
@@ -82,11 +82,7 @@ class MealClaimCard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                Icon(
-                  Icons.chevron_right,
-                  size: 20,
-                  color: Colors.black45,
-                ),
+                Icon(Icons.chevron_right, size: 20, color: Colors.black45),
               ],
             ),
           ],

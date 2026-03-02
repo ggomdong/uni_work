@@ -200,11 +200,6 @@ class _HeaderCard extends StatelessWidget {
                     _Chip(text: profile.position),
                   ],
                 ),
-                Gaps.v4,
-                const Text(
-                  '지점: (미설정)', // TODO: profile 모델에 지점명 필드 추가 시 치환
-                  style: TextStyle(fontSize: 12, color: Colors.black54),
-                ),
               ],
             ),
           ),

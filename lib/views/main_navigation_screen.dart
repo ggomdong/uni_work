@@ -146,8 +146,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen>
               ),
               NavTab(
                 isSelected: _selectedIndex == 1,
-                icon: FontAwesomeIcons.chartSimple,
-                selectedIcon: FontAwesomeIcons.chartSimple,
+                icon: FontAwesomeIcons.solidCalendarDays,
+                selectedIcon: FontAwesomeIcons.solidCalendarDays,
                 onTap: () => _onTap(1),
                 selectedIndex: _selectedIndex,
               ),
