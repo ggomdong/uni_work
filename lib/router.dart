@@ -14,7 +14,7 @@ class RouteURL {
   static const splash = "/splash";
   static const login = "/login";
   static const home = "/home";
-  static const tab = "/:tab(home|calendar|stat|profile)";
+  static const tab = "/:tab(home|stat|meal|profile)";
 }
 
 class RouteName {

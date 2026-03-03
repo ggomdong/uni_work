@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../constants/gaps.dart';
 
 import '../../utils.dart';
 
@@ -38,7 +39,7 @@ class ErrorView extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 44, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(height: 12),
+              Gaps.v12,
               Text(
                 title,
                 textAlign: TextAlign.center,
@@ -46,7 +47,7 @@ class ErrorView extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 8),
+              Gaps.v8,
               Text(
                 message,
                 textAlign: TextAlign.center,
@@ -54,7 +55,7 @@ class ErrorView extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 16),
+              Gaps.v16,
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
@@ -63,7 +64,7 @@ class ErrorView extends StatelessWidget {
 
               // 개발 중에는 원문 에러/스택을 펼쳐서 확인 가능(사용자에게는 숨김)
               if (kDebugMode) ...[
-                const SizedBox(height: 16),
+                Gaps.v16,
                 _DebugDetails(error: error, stackTrace: stackTrace),
               ],
             ],

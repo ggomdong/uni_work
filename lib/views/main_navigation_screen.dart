@@ -6,6 +6,7 @@ import '../utils.dart';
 import '../constants/sizes.dart';
 import '../view_models/beacon_view_model.dart';
 import '../views/home_screen.dart';
+import '../views/meal_screen.dart';
 import '../views/profile_screen.dart';
 import '../views/stat_screen.dart';
 import '../views/widgets/nav_tab.dart';
@@ -23,7 +24,7 @@ class MainNavigationScreen extends ConsumerStatefulWidget {
 
 class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen>
     with WidgetsBindingObserver {
-  final List<String> _tabs = ["home", "calendar", "stat", "profile"];
+  final List<String> _tabs = ["home", "stat", "meal", "profile"];
 
   late int _selectedIndex =
       _tabs.contains(widget.tab) ? _tabs.indexOf(widget.tab) : 0;
@@ -111,8 +112,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen>
       body: Stack(
         children: [
           Offstage(offstage: _selectedIndex != 0, child: const HomeScreen()),
-          // Offstage(offstage: _selectedIndex != 1, child: IBeaconScanner()),
-          Offstage(offstage: _selectedIndex != 2, child: StatScreen()),
+          Offstage(offstage: _selectedIndex != 1, child: StatScreen()),
+          Offstage(offstage: _selectedIndex != 2, child: const MealScreen()),
           Offstage(offstage: _selectedIndex != 3, child: ProfileScreen()),
         ],
       ),
@@ -143,17 +144,17 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen>
                 onTap: () => _onTap(0),
                 selectedIndex: _selectedIndex,
               ),
-              // NavTab(
-              //   isSelected: _selectedIndex == 1,
-              //   icon: FontAwesomeIcons.solidClock,
-              //   selectedIcon: FontAwesomeIcons.solidClock,
-              //   onTap: () => _onTap(1),
-              //   selectedIndex: _selectedIndex,
-              // ),
+              NavTab(
+                isSelected: _selectedIndex == 1,
+                icon: FontAwesomeIcons.solidCalendarDays,
+                selectedIcon: FontAwesomeIcons.solidCalendarDays,
+                onTap: () => _onTap(1),
+                selectedIndex: _selectedIndex,
+              ),
               NavTab(
                 isSelected: _selectedIndex == 2,
-                icon: FontAwesomeIcons.chartSimple,
-                selectedIcon: FontAwesomeIcons.chartSimple,
+                icon: FontAwesomeIcons.utensils,
+                selectedIcon: FontAwesomeIcons.utensils,
                 onTap: () => _onTap(2),
                 selectedIndex: _selectedIndex,
               ),

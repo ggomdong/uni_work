@@ -25,7 +25,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       context: context,
       builder:
           (context) => CupertinoAlertDialog(
-            title: const Text("정말 로그아웃하시겠어요?", style: TextStyle(fontSize: 14)),
+            title: const Text("정말 로그아웃 하시겠어요?", style: TextStyle(fontSize: 14)),
             actions: [
               CupertinoDialogAction(
                 onPressed: () => context.pop(),
@@ -182,19 +182,24 @@ class _HeaderCard extends StatelessWidget {
           ),
           Gaps.h16,
           Expanded(
-            child: Wrap(
-              runSpacing: 6,
-              spacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  profile.empName,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                Wrap(
+                  runSpacing: 6,
+                  spacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      profile.empName,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    _Chip(text: profile.dept),
+                    _Chip(text: profile.position),
+                  ],
                 ),
-                _Chip(text: profile.dept),
-                _Chip(text: profile.position),
               ],
             ),
           ),

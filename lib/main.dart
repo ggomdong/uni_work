@@ -39,6 +39,15 @@ class App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = ref.watch(settingsProvider).darkMode;
+    const brand = Color.fromARGB(255, 2, 179, 187);
+
+    final scheme = ColorScheme.fromSeed(
+      seedColor: brand,
+      brightness: Brightness.light,
+    ).copyWith(
+      primary: brand, // primary를 seed 그대로 고정
+      secondary: brand, // (선택) 토글/강조가 여기로 가는 경우도 있어 같이 고정
+    );
     return MaterialApp.router(
       routerConfig: ref.watch(routerProvider),
       debugShowCheckedModeBanner: false,
@@ -46,6 +55,7 @@ class App extends ConsumerWidget {
       themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
       theme: ThemeData(
         useMaterial3: true,
+        colorScheme: scheme,
         brightness: Brightness.light,
         scaffoldBackgroundColor: Colors.white,
         primaryColor: const Color.fromARGB(255, 2, 179, 187),
@@ -67,6 +77,10 @@ class App extends ConsumerWidget {
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: brand,
+          brightness: Brightness.dark,
+        ),
         textTheme: Typography.whiteMountainView,
         brightness: Brightness.dark,
         scaffoldBackgroundColor: Colors.black,
