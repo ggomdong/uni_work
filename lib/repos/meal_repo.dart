@@ -1,8 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/meal_claim_item.dart';
+import '../models/meal_options.dart';
 import '../models/meal_summary_model.dart';
 import '../repos/authentication_repo.dart';
-import '../views/widgets/meal_types.dart';
 
 class MealRepository {
   final Dio _dio;

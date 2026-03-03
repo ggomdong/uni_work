@@ -8,12 +8,13 @@ import '../app_refresh_service.dart';
 import '../constants/gaps.dart';
 import '../constants/sizes.dart';
 import '../utils.dart';
+import '../utils/meal_utils.dart';
+import '../models/meal_claim_item.dart';
 import './widgets/common_app_bar.dart';
 import './widgets/meal_month_header.dart';
 import './widgets/meal_summary_card.dart';
 import './widgets/meal_my_claim_list.dart';
 import './widgets/meal_claim_sheet.dart';
-import './widgets/meal_types.dart';
 import '../view_models/meal_items_view_model.dart';
 
 class MealScreen extends ConsumerStatefulWidget {

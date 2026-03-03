@@ -7,12 +7,15 @@ import 'package:intl/intl.dart';
 
 import '../../constants/gaps.dart';
 import '../../constants/sizes.dart';
+import '../../models/meal_claim_item.dart';
+import '../../models/meal_option_user.dart';
+import '../../models/meal_participant.dart';
 import '../../repos/meal_repo.dart';
 import '../../utils.dart';
+import '../../utils/meal_utils.dart';
 import './app_toast.dart';
 import './meal_date_picker_sheet.dart';
 import './meal_participant_picker_sheet.dart';
-import './meal_types.dart';
 
 enum MealClaimSheetMode { view, edit }
 

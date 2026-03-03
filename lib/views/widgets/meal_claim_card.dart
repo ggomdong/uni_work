@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../constants/gaps.dart';
 import '../../constants/sizes.dart';
-import './meal_types.dart';
+import '../../models/meal_claim_item.dart';
+import '../../utils/meal_utils.dart';
 
 class MealClaimCard extends StatelessWidget {
   final MealClaimItem item;

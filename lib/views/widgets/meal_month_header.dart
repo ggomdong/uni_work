@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../constants/gaps.dart';
-import '../../constants/sizes.dart';
-import './meal_types.dart';
+import '../../utils/meal_utils.dart';
 
 class MealMonthHeader extends StatelessWidget {
   final String yearMonth;

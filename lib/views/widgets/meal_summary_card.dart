@@ -3,39 +3,33 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../constants/gaps.dart';
 import '../../constants/sizes.dart';
 import '../../models/meal_summary_model.dart';
+import '../../utils/meal_utils.dart';
 import '../../view_models/meal_summary_view_model.dart';
-import './meal_types.dart';
 
 class MealSummaryCard extends ConsumerWidget {
   final String? ym;
   final VoidCallback onUsedTap;
 
-  const MealSummaryCard({
-    super.key,
-    this.ym,
-    required this.onUsedTap,
-  });
+  const MealSummaryCard({super.key, this.ym, required this.onUsedTap});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summaryAsync = ref.watch(mealSummaryProvider(ym));
 
     return summaryAsync.when(
-      data: (summary) => _SummaryRow(
-        summary: summary,
-        onUsedTap: onUsedTap,
-      ),
-      loading: () => const _SummaryRow(
-        summary: MealSummaryModel(
-          ym: null,
-          totalAmount: 0,
-          usedAmount: 0,
-          balance: 0,
-          claimCount: 0,
-        ),
-        onUsedTap: null,
-        isLoading: true,
-      ),
+      data: (summary) => _SummaryRow(summary: summary, onUsedTap: onUsedTap),
+      loading:
+          () => const _SummaryRow(
+            summary: MealSummaryModel(
+              ym: null,
+              totalAmount: 0,
+              usedAmount: 0,
+              balance: 0,
+              claimCount: 0,
+            ),
+            onUsedTap: null,
+            isLoading: true,
+          ),
       error: (error, stack) => const Text('요약 정보를 불러오지 못했습니다.'),
     );
   }
@@ -61,9 +55,8 @@ class _SummaryRow extends StatelessWidget {
         Expanded(
           child: _SummaryMini(
             label: '발생',
-            value: isLoading
-                ? '...'
-                : '${formatMealAmount(summary.totalAmount)}원',
+            value:
+                isLoading ? '...' : '${formatMealAmount(summary.totalAmount)}원',
           ),
         ),
         Expanded(
@@ -77,9 +70,10 @@ class _SummaryRow extends StatelessWidget {
               ),
               child: _SummaryMini(
                 label: usedLabel,
-                value: isLoading
-                    ? '...'
-                    : '${formatMealAmount(summary.usedAmount)}원',
+                value:
+                    isLoading
+                        ? '...'
+                        : '${formatMealAmount(summary.usedAmount)}원',
                 highlight: true,
               ),
             ),
@@ -88,8 +82,7 @@ class _SummaryRow extends StatelessWidget {
         Expanded(
           child: _SummaryMini(
             label: '잔액',
-            value:
-                isLoading ? '...' : '${formatMealAmount(summary.balance)}원',
+            value: isLoading ? '...' : '${formatMealAmount(summary.balance)}원',
             emphasize: true,
           ),
         ),

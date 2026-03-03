@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../constants/gaps.dart';
 import '../../constants/sizes.dart';
+import '../../models/meal_option_group.dart';
+import '../../models/meal_option_user.dart';
 import './app_toast.dart';
-import './meal_types.dart';
 
 Future<List<MealOptionUser>?> showMealParticipantPickerSheet({
   required BuildContext context,

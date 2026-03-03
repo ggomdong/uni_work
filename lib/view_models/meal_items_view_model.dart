@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/meal_claim_item.dart';
 import '../repos/meal_repo.dart';
-import '../views/widgets/meal_types.dart';
 
 enum MealItemsType { created, used }
 

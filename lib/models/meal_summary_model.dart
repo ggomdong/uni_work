@@ -1,3 +1,5 @@
+import '../utils/meal_utils.dart';
+
 class MealSummaryModel {
   final String? ym;
   final int totalAmount;
@@ -16,18 +18,10 @@ class MealSummaryModel {
   factory MealSummaryModel.fromJson(Map<String, dynamic> json) {
     return MealSummaryModel(
       ym: json['ym']?.toString(),
-      totalAmount: _parseInt(json['total_amount']),
-      usedAmount: _parseInt(json['used_amount']),
-      balance: _parseInt(json['balance']),
-      claimCount: _parseInt(json['claim_count']),
+      totalAmount: parseInt(json['total_amount']),
+      usedAmount: parseInt(json['used_amount']),
+      balance: parseInt(json['balance']),
+      claimCount: parseInt(json['claim_count']),
     );
-  }
-
-  static int _parseInt(dynamic value) {
-    if (value == null) return 0;
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value) ?? 0;
-    return 0;
   }
 }
