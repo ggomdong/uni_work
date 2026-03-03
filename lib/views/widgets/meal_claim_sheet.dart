@@ -1210,10 +1210,10 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
                             FilteringTextInputFormatter.digitsOnly,
                             LengthLimitingTextInputFormatter(8),
                           ],
-                          decoration: _decoration('승인번호(8자리)'),
+                          decoration: _decoration('승인번호(8자리)', hint: '선택'),
                           validator: (v) {
                             final t = (v ?? '').trim();
-                            if (t.isEmpty) return '승인번호를 입력해주세요.';
+                            if (t.isEmpty) return null; // 선택 항목
                             if (t.length != 8) return '승인번호는 8자리입니다.';
                             return null;
                           },

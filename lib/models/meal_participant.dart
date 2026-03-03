@@ -21,7 +21,7 @@ class MealParticipant {
 
   factory MealParticipant.fromJson(Map<String, dynamic> json) {
     return MealParticipant(
-      userId: parseInt(json['user_id']),
+      userId: parseInt(json['user_id'] ?? json['id']),
       name: (json['emp_name'] as String?) ?? (json['name'] as String?) ?? '',
       amount: parseInt(json['amount']),
     );
