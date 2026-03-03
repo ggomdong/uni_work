@@ -79,6 +79,9 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   FocusNode _focusNodeForParticipant(int userId) =>
       _participantFocusNodes.putIfAbsent(userId, () => FocusNode());
 
+  // alertDialog 등을 닫은 후, 최종 포커스했던 곳으로 이동을 방지하기 위한 변수
+  late final FocusNode _focusParkingNode;
+
   // 총액 입력/표기 시 콤마 포맷을 위한 코드
   late final FocusNode _totalAmountFocusNode;
   int _parseMoney(String s) => int.tryParse(s.replaceAll(',', '').trim()) ?? 0;
@@ -114,6 +117,8 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     _participantAmountManager = ParticipantAmountControllerManager();
     _amountController.addListener(_handleTotalAmountChange);
     _participantAmountManager.syncFromParticipants(_item.participants);
+
+    _focusParkingNode = FocusNode(debugLabel: 'meal_sheet_focus_parking');
   }
 
   @override
@@ -132,6 +137,8 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     }
     _participantFocusNodes.clear();
 
+    _focusParkingNode.dispose();
+
     super.dispose();
   }
 
@@ -140,6 +147,13 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   // Keyboard 외의 영역 클릭시 Keyboard가 사라지도록 처리
   void _onScaffoldTap() {
     FocusScope.of(context).unfocus();
+  }
+
+  void _parkFocus() {
+    // last-focused 복원 자체를 끊어버림
+    FocusScope.of(context).unfocus(disposition: UnfocusDisposition.scope);
+    FocusScope.of(context).requestFocus(_focusParkingNode);
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
   }
 
   Future<T?> _openSheetWithFocusReset<T>(Future<T?> Function() open) async {
@@ -321,18 +335,30 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     final keepLabel = isNew ? '계속 입력' : '계속 수정';
     final result = await showCupertinoDialog<bool>(
       context: context,
-      builder: (context) {
+      useRootNavigator: false,
+      builder: (dialogContext) {
         return CupertinoAlertDialog(
           title: Text(title),
           content: const Text('변경한 내용이 저장되지 않습니다.'),
           actions: [
             CupertinoDialogAction(
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () {
+                // 1) pop 직전에 선제 주차 -> 복원 자체를 최대한 막음(깜박임 제거)
+                if (mounted) _parkFocus();
+                Navigator.of(dialogContext).pop(false);
+                // 2) (안전) pop 직후 한 프레임 뒤에 한 번 더 주차
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  _parkFocus();
+                });
+              },
               child: Text(keepLabel, style: TextStyle(fontSize: 14)),
             ),
             CupertinoDialogAction(
               isDestructiveAction: true,
-              onPressed: () => Navigator.of(context).pop(true),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
               child: const Text('폐기', style: TextStyle(fontSize: 14)),
             ),
           ],
