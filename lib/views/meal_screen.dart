@@ -26,7 +26,6 @@ class MealScreen extends ConsumerStatefulWidget {
 
 class _MealScreenState extends ConsumerState<MealScreen> {
   late String _yearMonth;
-  final int _refreshTick = 0;
   int _selectedIndex = 0;
   bool _sortDesc = true;
 

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -169,6 +168,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 CupertinoDialogAction(
                   isDestructiveAction: true,
                   onPressed: () async {
+                    final messenger = ScaffoldMessenger.of(context);
                     timer?.cancel();
                     Navigator.of(context).pop();
 
@@ -176,7 +176,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
                     final st = ref.read(attendanceProvider);
                     if (st.hasError && mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      messenger.showSnackBar(
                         SnackBar(
                           content: Text(humanizeErrorMessage(st.error!)),
                         ),
