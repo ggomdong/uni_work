@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../constants/constants.dart';
 import '../app_refresh_service.dart';
 import '../view_models/beacon_view_model.dart';
 import '../view_models/attendance_view_model.dart';
@@ -242,6 +243,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return Scaffold(
       appBar: CommonAppBar(
+        label: tabLabel['home'],
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8.0),

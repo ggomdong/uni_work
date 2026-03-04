@@ -15,3 +15,11 @@ class BeaconConfig {
 
 // 개인정보처리방침 URL
 const attendancePrivacyUrl = '/wtm/privacy/';
+
+// 메뉴별 타이틀
+const tabLabel = {
+  'home': '근태관리',
+  'stat': '근무표',
+  'meal': '식대관리',
+  'profile': '프로필',
+};

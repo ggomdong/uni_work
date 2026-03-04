@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../constants/constants.dart';
 import '../app_refresh_service.dart';
 import '../status_theme.dart';
 import '../utils.dart';
@@ -145,6 +146,7 @@ class _StatScreenState extends ConsumerState<StatScreen> {
 
     return Scaffold(
       appBar: CommonAppBar(
+        label: tabLabel['stat'],
         actions: [
           IconButton(
             tooltip: "새로고침",

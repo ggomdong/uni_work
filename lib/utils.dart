@@ -34,6 +34,34 @@ class PhoneInputFormatter extends TextInputFormatter {
   }
 }
 
+// 프로필 화면 등에서 전화번호 표기 포맷
+String formatPhoneForDisplay(String raw) {
+  final digits = raw.replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) return '';
+
+  // 서울(02) 예외 처리(원하면 유지)
+  if (digits.startsWith('02')) {
+    if (digits.length == 9) {
+      return '02-${digits.substring(2, 5)}-${digits.substring(5)}'; // 02-123-4567
+    }
+    if (digits.length == 10) {
+      return '02-${digits.substring(2, 6)}-${digits.substring(6)}'; // 02-1234-5678
+    }
+
+    return raw;
+  }
+
+  // 휴대폰(010 등) / 지역번호(031 등)
+  if (digits.length == 10) {
+    return '${digits.substring(0, 3)}-${digits.substring(3, 6)}-${digits.substring(6)}'; // 000-000-0000
+  }
+  if (digits.length == 11) {
+    return '${digits.substring(0, 3)}-${digits.substring(3, 7)}-${digits.substring(7)}'; // 000-0000-0000
+  }
+
+  return raw; // 예상 외 길이는 원문 유지
+}
+
 // initialUsername 을 가져올때 포맷팅하는 유틸함수
 String? formatInitialPhone(String? fullPhone) {
   if (fullPhone == null) return null;
