@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../constants/constants.dart';
 import '../app_refresh_service.dart';
 import '../constants/gaps.dart';
 import '../models/profile_model.dart';
@@ -58,6 +59,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Scaffold(
       appBar: CommonAppBar(
+        label: tabLabel['profile'],
         actions: [
           IconButton(
             tooltip: "새로고침",
@@ -76,8 +78,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 Gaps.v32,
-                _HeaderCard(profile: profile),
-                Gaps.v16,
+                // _HeaderCard(profile: profile),
+                // Gaps.v16,
+                _InfoTile(
+                  label: '지점',
+                  value: profile.branchName,
+                  icon: Icons.storefront,
+                ),
+                Gaps.v8,
                 _InfoTile(
                   label: '부서',
                   value: profile.dept,
@@ -98,7 +106,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Gaps.v8,
                 _InfoTile(
                   label: 'ID(휴대폰번호)',
-                  value: profile.username,
+                  value: formatPhoneForDisplay(profile.username),
                   icon: Icons.phone_iphone,
                 ),
                 Gaps.v8,

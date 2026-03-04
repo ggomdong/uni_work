@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../constants/constants.dart';
 import '../app_refresh_service.dart';
 import '../constants/gaps.dart';
 import '../constants/sizes.dart';
@@ -225,6 +226,7 @@ class _MealScreenState extends ConsumerState<MealScreen> {
 
     return Scaffold(
       appBar: CommonAppBar(
+        label: tabLabel['meal'],
         actions: [
           IconButton(
             tooltip: '새로고침',

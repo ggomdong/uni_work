@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import '../../constants/constants.dart';
 
 class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
+  /// 메뉴별 문구(설명). null/빈값이면 표시하지 않음.
+  final String? label;
   final List<Widget>? actions;
 
-  const CommonAppBar({super.key, this.actions});
+  const CommonAppBar({super.key, this.label, this.actions});
 
   @override
   Widget build(BuildContext context) {
+    final hasLabel = (label != null && label!.trim().isNotEmpty);
+
     return AppBar(
       centerTitle: true,
       automaticallyImplyLeading: false,
@@ -22,14 +26,17 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Image.asset(logo, width: 133, height: 50),
-              Text(
-                "Medi HR",
-                style: TextStyle(
-                  color: Colors.grey.shade700,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              if (hasLabel)
+                Text(
+                  label!.trim(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.grey.shade700,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
