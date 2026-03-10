@@ -46,9 +46,11 @@ class _StatScreenState extends ConsumerState<StatScreen> {
   final ValueNotifier<DateTime> _selectedDay = ValueNotifier(
     DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
   );
-  final ValueNotifier<MonthlyAttendanceModel?> _selectedAttendance =
-      ValueNotifier<MonthlyAttendanceModel?>(null);
   final Map<int, MonthlyAttendanceModel> attendanceMap = {};
+
+  int _dayKey(DateTime d) =>
+      DateTime(d.year, d.month, d.day).millisecondsSinceEpoch;
+  DateTime _dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   String _secondsToHms(int seconds) {
     if (seconds <= 0) return "00:00:00";
@@ -169,21 +171,9 @@ class _StatScreenState extends ConsumerState<StatScreen> {
         data: (records) {
           attendanceMap.clear();
           // 월간 데이터(records)를 날짜별로 매핑 (1일 = 1레코드)
-          for (var record in records) {
-            final key =
-                DateTime(
-                  record.recordDay.year,
-                  record.recordDay.month,
-                  record.recordDay.day,
-                ).millisecondsSinceEpoch;
-            attendanceMap[key] = record;
+          for (final record in records) {
+            attendanceMap[_dayKey(record.recordDay)] = record;
           }
-
-          // 항상 최신 attendanceMap 기준으로 선택일 데이터를 갱신
-          final selectedKey = _selectedDay.value.millisecondsSinceEpoch;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _selectedAttendance.value = attendanceMap[selectedKey];
-          });
 
           final holidayValue = formatCountAndSeconds(
             records,
@@ -275,16 +265,8 @@ class _StatScreenState extends ConsumerState<StatScreen> {
                           formatButtonVisible: false,
                         ),
                         onDaySelected: (selectedDay, focusedDay) {
-                          final normalizedDay =
-                              DateTime(
-                                selectedDay.year,
-                                selectedDay.month,
-                                selectedDay.day,
-                              ).millisecondsSinceEpoch;
-
-                          _selectedDay.value = selectedDay;
-                          _selectedAttendance.value =
-                              attendanceMap[normalizedDay];
+                          final day = _dayOnly(selectedDay);
+                          _selectedDay.value = day;
                         },
                         onPageChanged: (newFocusedDay) {
                           final newMonth = DateTime(
@@ -299,11 +281,7 @@ class _StatScreenState extends ConsumerState<StatScreen> {
                           if (newMonth.year == thisMonth.year &&
                               newMonth.month == thisMonth.month) {
                             // 이번 달이면 오늘 날짜 선택
-                            selected = DateTime(
-                              today.year,
-                              today.month,
-                              today.day,
-                            );
+                            selected = _dayOnly(today);
                           } else {
                             // 다른 달이면 1일 선택
                             selected = DateTime(
@@ -316,12 +294,6 @@ class _StatScreenState extends ConsumerState<StatScreen> {
                           setState(() {
                             _focusedDay = newMonth;
                             _selectedDay.value = selected;
-                          });
-
-                          // UI 빌드 이후에 _selectedAttendance 업데이트 (바로 하면 race condition 가능성 있음)
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            _selectedAttendance.value =
-                                attendanceMap[selected.millisecondsSinceEpoch];
                           });
                         },
                         daysOfWeekStyle: DaysOfWeekStyle(
@@ -353,18 +325,15 @@ class _StatScreenState extends ConsumerState<StatScreen> {
                                 OutlinedButton(
                                   onPressed: () {
                                     final now = DateTime.now();
-                                    final today = DateTime(
-                                      now.year,
-                                      now.month,
-                                      now.day,
-                                    );
-                                    final todayMillis =
-                                        today.millisecondsSinceEpoch;
+                                    final today = _dayOnly(now);
 
-                                    _focusedDay = today;
+                                    setState(() {
+                                      _focusedDay = DateTime(
+                                        today.year,
+                                        today.month,
+                                      );
+                                    });
                                     _selectedDay.value = today;
-                                    _selectedAttendance.value =
-                                        attendanceMap[todayMillis];
                                   },
                                   style: OutlinedButton.styleFrom(
                                     minimumSize: Size(1, 1),
@@ -453,7 +422,14 @@ class _StatScreenState extends ConsumerState<StatScreen> {
                 ),
               ),
               Gaps.v16,
-              StatDetailCard(selectedAttendance: _selectedAttendance),
+              ValueListenableBuilder<DateTime>(
+                valueListenable: _selectedDay,
+                builder: (context, selectedDay, _) {
+                  final selectedAttendance =
+                      attendanceMap[_dayKey(selectedDay)];
+                  return StatDetailCard(selectedAttendance: selectedAttendance);
+                },
+              ),
             ],
           );
         },
