@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../repos/authentication_repo.dart';
 import '../views/widgets/snackbar.dart';
 import '../view_models/login_view_model.dart';
@@ -244,6 +245,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       '개인정보처리방침',
                       style: TextStyle(fontSize: 12),
                     ),
+                  ),
+                  Gaps.v12,
+                  FutureBuilder<PackageInfo>(
+                    future: PackageInfo.fromPlatform(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const SizedBox();
+
+                      final info = snapshot.data!;
+                      return Text(
+                        "${info.appName} v${info.version} (${info.buildNumber})",
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade500,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
