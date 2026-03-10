@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../constants/constants.dart';
 import '../app_refresh_service.dart';
 import '../constants/gaps.dart';
@@ -78,32 +79,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 Gaps.v32,
-                // _HeaderCard(profile: profile),
-                // Gaps.v16,
+                _HeaderCard(profile: profile),
+                Gaps.v16,
                 _InfoTile(
                   label: '지점',
                   value: profile.branchName,
-                  icon: Icons.storefront,
-                ),
-                Gaps.v8,
-                _InfoTile(
-                  label: '부서',
-                  value: profile.dept,
                   icon: Icons.apartment,
                 ),
                 Gaps.v8,
-                _InfoTile(
-                  label: '직위',
-                  value: profile.position,
-                  icon: Icons.badge,
-                ),
-                Gaps.v8,
-                _InfoTile(
-                  label: '이름',
-                  value: profile.empName,
-                  icon: Icons.person,
-                ),
-                Gaps.v8,
+                // _InfoTile(
+                //   label: '부서',
+                //   value: profile.dept,
+                //   icon: Icons.apartment,
+                // ),
+                // Gaps.v8,
+                // _InfoTile(
+                //   label: '직위',
+                //   value: profile.position,
+                //   icon: Icons.badge,
+                // ),
+                // Gaps.v8,
+                // _InfoTile(
+                //   label: '이름',
+                //   value: profile.empName,
+                //   icon: Icons.person,
+                // ),
+                // Gaps.v8,
                 _InfoTile(
                   label: 'ID(휴대폰번호)',
                   value: formatPhoneForDisplay(profile.username),
@@ -134,6 +135,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 TextButton(
                   onPressed: () => openPrivacy(ref),
                   child: const Text('개인정보처리방침', style: TextStyle(fontSize: 12)),
+                ),
+                FutureBuilder<PackageInfo>(
+                  future: PackageInfo.fromPlatform(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) return const SizedBox();
+
+                    final info = snapshot.data!;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Center(
+                        child: Text(
+                          "${info.appName} v${info.version} (${info.buildNumber})",
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ],
             );
