@@ -142,9 +142,12 @@ class _MealParticipantPickerSheetState
         _selectedGroupIndex <= groups.length ? _selectedGroupIndex : 0;
     final currentUsers =
         safeGroupIndex == 0 ? widget.users : groups[safeGroupIndex - 1].members;
-    final filtered = currentUsers
-      .where((u) => _matchesQuery(u))
-      .toList(growable: false)..sort((a, b) => a.empName.compareTo(b.empName));
+    final filtered =
+        _query.isEmpty
+            ? currentUsers
+            : widget.users
+                .where((u) => _matchesQuery(u))
+                .toList(growable: false);
 
     return Container(
       decoration: BoxDecoration(
