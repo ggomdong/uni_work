@@ -28,7 +28,11 @@ class AuthenticationRepository {
     this._prefs, {
     this.onAuthStateChanged,
   }) {
-    _dio.options.baseUrl = dotenv.env['API_URL'] ?? 'http://localhost:8000/';
+    final baseUrl = dotenv.env['API_URL'];
+    if (baseUrl == null || baseUrl.isEmpty) {
+      throw Exception('API_URL is not configured');
+    }
+    _dio.options.baseUrl = baseUrl;
 
     // 🔥 URL 확인
     logger.i('🔥[AUTH][INIT] baseUrl = ${_dio.options.baseUrl}');

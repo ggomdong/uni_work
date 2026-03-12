@@ -10,12 +10,16 @@ import '../repos/settings_repo.dart';
 import '../router.dart';
 import '../view_models/settings_view_model.dart';
 
-void main() async {
+Future<void> main() async {
+  await bootstrap(envFile: '.env.prod');
+}
+
+Future<void> bootstrap({required String envFile}) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await initializeDateFormatting('ko_KR', null);
 
-  // await dotenv.load();
+  await dotenv.load(fileName: envFile);
 
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 

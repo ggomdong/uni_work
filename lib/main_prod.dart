@@ -1,7 +1,5 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'main.dart' as app;
 
-void main() async {
-  await dotenv.load(fileName: ".env.prod");
-  app.main();
+Future<void> main() async {
+  await app.bootstrap(envFile: '.env.prod');
 }
