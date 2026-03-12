@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../../constants/gaps.dart';
 import '../../constants/sizes.dart';
 import '../../models/meal_claim_item.dart';
+import '../../models/meal_options.dart';
 import '../../models/meal_option_user.dart';
 import '../../models/meal_participant.dart';
 import '../../repos/meal_repo.dart';
@@ -75,6 +76,8 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   bool _saving = false;
   int? _editingUserId;
   late final ParticipantAmountControllerManager _participantAmountManager;
+  MealOptions? _cachedMealOptions;
+  String? _cachedMealOptionsDateKey;
 
   // 편집 시작 시점의 원본 스냅샷(취소 시 원복용)
   MealClaimItem? _editOrigin;
@@ -387,6 +390,131 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     return participants.fold<int>(0, (sum, p) => sum + p.amount);
   }
 
+  String _formatUsedDate(DateTime date) =>
+      DateFormat('yyyy-MM-dd').format(date);
+
+  bool _isSameCalendarDate(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  MealClaimItem _copyItemWithParticipants(
+    MealClaimItem source,
+    List<MealParticipant> participants, {
+    DateTime? usedDate,
+  }) {
+    final effectiveUsedDate = usedDate ?? source.usedDate;
+    final sum = _sumParticipants(participants);
+    return source.copyWith(
+      ym: DateFormat('yyyyMM').format(effectiveUsedDate),
+      usedDate: effectiveUsedDate,
+      totalAmount: sum,
+      participants: participants,
+      participantsCount: participants.length,
+      participantsSum: sum,
+    );
+  }
+
+  Future<MealOptions> _loadMealOptionsForDate(
+    DateTime usedDate, {
+    bool forceReload = false,
+  }) async {
+    final usedDateKey = _formatUsedDate(usedDate);
+    if (!forceReload &&
+        _cachedMealOptions != null &&
+        _cachedMealOptionsDateKey == usedDateKey) {
+      return _cachedMealOptions!;
+    }
+
+    final options = await ref
+        .read(mealRepoProvider)
+        .getMealOptions(
+          usedDate: usedDateKey,
+          ym: DateFormat('yyyyMM').format(usedDate),
+        );
+    _cachedMealOptions = options;
+    _cachedMealOptionsDateKey = usedDateKey;
+    return options;
+  }
+
+  String _removedParticipantsMessage(List<MealParticipant> removed) {
+    final names = removed
+        .map((p) => p.name.trim())
+        .where((name) => name.isNotEmpty)
+        .toList(growable: false);
+    final previewNames = names.take(3).toList(growable: false);
+    final preview = previewNames.isEmpty ? '이름 미확인' : previewNames.join(', ');
+    final extraCount = removed.length - previewNames.length;
+    final suffix = extraCount > 0 ? ' 외 $extraCount명' : '';
+    final noun = removed.length == 1 ? '1명이' : '${removed.length}명이';
+    return '사용일 변경으로 선택할 수 없는 대상자 $noun 제외되었습니다. ($preview$suffix)';
+  }
+
+  Future<void> _onUsedDateChanged(DateTime nextDate) async {
+    final normalized = DateTime(nextDate.year, nextDate.month, nextDate.day);
+    final current = DateTime(
+      _item.usedDate.year,
+      _item.usedDate.month,
+      _item.usedDate.day,
+    );
+    if (_isSameCalendarDate(current, normalized)) {
+      _usedDateController.text = _formatUsedDate(normalized);
+      return;
+    }
+
+    final currentParticipants = _participantsFromControllers();
+
+    try {
+      final options = await _loadMealOptionsForDate(
+        normalized,
+        forceReload: true,
+      );
+      if (!mounted) return;
+
+      final allowedUserIds =
+          options.users
+              .where((user) => user.id > 0)
+              .map((user) => user.id)
+              .toSet();
+      final nextParticipants = currentParticipants
+          .where((participant) => allowedUserIds.contains(participant.userId))
+          .toList(growable: false);
+      final removed = currentParticipants
+          .where((participant) => !allowedUserIds.contains(participant.userId))
+          .toList(growable: false);
+      final nextItem = _copyItemWithParticipants(
+        _item,
+        nextParticipants,
+        usedDate: normalized,
+      );
+
+      setState(() {
+        _item = nextItem;
+        _usedDateController.text = _formatUsedDate(normalized);
+        if (_editingUserId != null &&
+            !nextParticipants.any((p) => p.userId == _editingUserId)) {
+          _editingUserId = null;
+        }
+      });
+      _participantAmountManager.syncFromParticipants(nextParticipants);
+
+      if (removed.isNotEmpty) {
+        AppToast.show(
+          context,
+          _removedParticipantsMessage(removed),
+          backgroundColor: Colors.orange.shade700,
+          duration: const Duration(milliseconds: 2600),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      AppToast.show(
+        context,
+        humanizeErrorMessage(error),
+        backgroundColor: Colors.redAccent,
+      );
+    }
+  }
+
   // 저장 직전에 컨트롤러 텍스트를 기준으로 participants.amount를 확정한다.
   // (IME/포커스 타이밍 이슈로 onChanged가 마지막 입력을 state에 반영하기 전에 저장될 수 있음)
   List<MealParticipant> _participantsFromControllers() {
@@ -492,7 +620,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
       if (!mounted) return;
       AppToast.show(
         context,
-        '${humanizeErrorMessage(error)}\n${error.toString()}',
+        humanizeMealClaimSaveError(error),
         backgroundColor: Colors.redAccent,
       );
     } finally {
@@ -580,8 +708,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
     });
 
     if (picked != null) {
-      _usedDateController.text = DateFormat('yyyy-MM-dd').format(picked);
-      if (mounted) setState(() {});
+      await _onUsedDateChanged(picked);
     }
   }
 
@@ -716,27 +843,10 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
   }
 
   Future<void> _onPickParticipants() async {
-    final parsedDate = DateTime.tryParse(_usedDateController.text.trim());
-    final usedDateText =
-        parsedDate == null ? null : DateFormat('yyyy-MM-dd').format(parsedDate);
-    final fallbackYm =
-        _item.ym.isNotEmpty
-            ? _item.ym
-            : DateFormat('yyyyMM').format(_item.usedDate);
-
-    if (usedDateText == null && fallbackYm.trim().isEmpty) {
-      AppToast.show(
-        context,
-        '사용일 또는 월 정보를 먼저 입력해주세요.',
-        backgroundColor: Colors.redAccent,
-      );
-      return;
-    }
+    final usedDate = _item.usedDate;
 
     try {
-      final options = await ref
-          .read(mealRepoProvider)
-          .getMealOptions(usedDate: usedDateText, ym: fallbackYm);
+      final options = await _loadMealOptionsForDate(usedDate);
       if (!mounted) return;
       final result = await _openSheetWithFocusReset<List<MealOptionUser>?>(() {
         return showMealParticipantPickerSheet(
@@ -769,12 +879,7 @@ class _MealClaimSheetState extends ConsumerState<MealClaimSheet> {
 
       final next = participants;
       setState(() {
-        _item = _item.copyWith(
-          totalAmount: _sumParticipants(next),
-          participants: next,
-          participantsCount: next.length,
-          participantsSum: _sumParticipants(next),
-        );
+        _item = _copyItemWithParticipants(_item, next);
         if (_editingUserId != null &&
             !next.any((p) => p.userId == _editingUserId)) {
           _editingUserId = null;

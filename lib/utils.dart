@@ -175,3 +175,64 @@ String humanizeErrorMessage(Object error) {
 
   return '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
 }
+
+String humanizeMealClaimSaveError(Object error) {
+  if (error is DioException) {
+    final status = error.response?.statusCode;
+    final data = error.response?.data;
+    final flattened = _flattenErrorData(data).toLowerCase();
+
+    final hasParticipantField =
+        flattened.contains('participant') ||
+        flattened.contains('participants') ||
+        flattened.contains('user_id') ||
+        flattened.contains('employee') ||
+        flattened.contains('staff') ||
+        flattened.contains('대상자') ||
+        flattened.contains('사용자');
+    final hasEligibilityHint =
+        flattened.contains('used_date') ||
+        flattened.contains('invalid pk') ||
+        flattened.contains('does not exist') ||
+        flattened.contains('inactive') ||
+        flattened.contains('retired') ||
+        flattened.contains('퇴사') ||
+        flattened.contains('재직');
+
+    final isParticipantEligibilityError400 =
+        status == 400 && (hasParticipantField || hasEligibilityHint);
+
+    final isParticipantEligibilityError404 =
+        status == 404 && hasParticipantField && hasEligibilityHint;
+
+    if (isParticipantEligibilityError400 || isParticipantEligibilityError404) {
+      return '선택한 사용일에 유효하지 않은 대상자가 포함되어 있습니다. 대상자를 다시 확인해 주세요.';
+    }
+  }
+
+  return humanizeErrorMessage(error);
+}
+
+String _flattenErrorData(dynamic data) {
+  if (data == null) return '';
+  if (data is String) return data;
+  if (data is List) {
+    return data.map(_flattenErrorData).where((e) => e.isNotEmpty).join(' ');
+  }
+
+  if (data is Map) {
+    final parts = <String>[];
+
+    data.forEach((key, value) {
+      final keyText = key?.toString() ?? '';
+      final valueText = _flattenErrorData(value);
+
+      if (keyText.isNotEmpty) parts.add(keyText);
+      if (valueText.isNotEmpty) parts.add(valueText);
+    });
+
+    return parts.join(' ');
+  }
+
+  return data.toString();
+}
